@@ -24,7 +24,7 @@ from . import db
 from .db import ASSESSMENTS, DECISIONS, EXTRACTIONS, REQUESTS, now
 from .explain import fact_sheet, render_coordinator, render_tenant, verify
 from .queue import position
-from .reference import communities
+from .reference import area_of, communities
 from .schemas import DecisionIn, Extraction, LodgeIn
 from .wait import estimate, reachability
 
@@ -289,8 +289,8 @@ def queue_view(tier: str | None = None, community: str | None = None) -> list[di
         facts = a.get("facts") or {}
         out.append({
             "request_id": req["_id"], "tier": a["tier"], "need": a["need_score"],
-            "community": dw["community"], "address": dw.get("address"),
-            "phone": dw.get("phone"), "remote": c.remote,
+            "community": dw["community"], "area": area_of(dw["community"]),
+            "address": dw.get("address"), "phone": dw.get("phone"), "remote": c.remote,
             "text": req["text_original"], "status": req["status"],
             "lodged_at": req["lodged_at"],
             "evidence": facts.get("evidence", ""),
@@ -333,7 +333,8 @@ def all_requests_view() -> list[dict]:
         out.append({
             "request_id": r["_id"], "status": r["status"], "lodged_at": r["lodged_at"],
             "tier": a.get("tier", ""), "need": a.get("need_score"),
-            "community": dw["community"], "address": dw.get("address"), "phone": dw.get("phone"),
+            "community": dw["community"], "area": area_of(dw["community"]),
+            "address": dw.get("address"), "phone": dw.get("phone"),
             "remote": communities()[dw["community"]].remote, "text": r["text_original"],
             "evidence": (a.get("facts") or {}).get("evidence", ""),
             "trade": Extraction.model_validate(r["extraction"]).trade if r.get("extraction") else "",

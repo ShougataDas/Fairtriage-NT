@@ -107,6 +107,7 @@ export interface QueueRow {
   tier: Tier;
   need: number;
   community: string;
+  area: string;
   address: string | null;
   remote: boolean;
   text: string;

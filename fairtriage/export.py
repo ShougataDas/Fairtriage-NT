@@ -18,7 +18,7 @@ COLUMNS = [
     ("Need score", "need", 10), ("Status", "status", 16), ("Reported (UTC)", "lodged_at", 20),
     ("Days waiting", "days_open", 12), ("Target", "target_label", 16),
     ("% of target", "pct_of_target", 11), ("Past target", "past_target", 11),
-    ("Community", "community", 22), ("Address", "address", 30), ("Phone", "phone", 15),
+    ("Area", "area", 14), ("Community", "community", 22), ("Address", "address", 30), ("Phone", "phone", 15),
     ("Remote", "remote", 8), ("Trade", "trade", 14), ("Tenant's words", "evidence", 60),
     ("Expected wait from (days)", "wait_low", 14), ("Expected wait to (days)", "wait_high", 14),
     ("Flags", "flags", 40), ("Trip", "trip_id", 14), ("Expected arrival (UTC)", "eta_at", 20),
@@ -28,10 +28,12 @@ TIER_FILL = {"Immediate": "FDECEA", "Urgent": "FDF3E2", "Routine": "E8F3ED"}
 
 
 def rows(scope: str = "queue", tier: str | None = None, remote: bool | None = None,
-         q: str | None = None) -> list[dict]:
+         q: str | None = None, area: str | None = None) -> list[dict]:
     data = queue_view(tier) if scope == "queue" else all_requests_view()
     if scope != "queue" and tier:
         data = [r for r in data if r.get("tier") == tier]
+    if area:
+        data = [r for r in data if r.get("area") == area]
     if remote is not None:
         data = [r for r in data if r.get("remote") == remote]
     if q:

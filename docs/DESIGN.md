@@ -13,7 +13,7 @@ results and all evaluation numbers in this README come from those rules. `/api/h
 reports which reader is live, and staff screens warn if a switched-on model
 stops answering.
 
-To switch a model on, copy `.env.example` to `.env` and pick one provider:
+To switch a model on, set `FAIRTRIAGE_EXTRACTOR` and the provider's key in `.env`:
 
 | `FAIRTRIAGE_EXTRACTOR` | Key | Default model | How it gets structured output |
 |---|---|---|---|

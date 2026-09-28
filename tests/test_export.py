@@ -45,6 +45,14 @@ def test_filters_apply():
     assert [x["Community"] for x in rows] == ["Wadeye"]
 
 
+def test_area_filter_and_column():
+    seed()
+    rows = list(csv.DictReader(io.StringIO(
+        c.get("/api/export?format=csv&area=Top%20End").content.decode("utf-8-sig"))))
+    assert [(x["Area"], x["Community"]) for x in rows] == [("Top End", "Wadeye")]
+    assert {r["area"] for r in c.get("/api/queue").json()} == {"Top End", "Darwin"}
+
+
 def test_xlsx_opens_with_headers_and_rows():
     from openpyxl import load_workbook
     seed()

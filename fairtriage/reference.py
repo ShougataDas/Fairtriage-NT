@@ -57,6 +57,21 @@ def _distances() -> dict[tuple[str, str], tuple[float, float]]:
                 for r in csv.DictReader(fh)}
 
 
+AREA_ORDER = ["Darwin", "Palmerston", "Darwin rural", "Top End", "Big Rivers", "Arnhem"]
+
+
+def area_of(community: str) -> str:
+    """The area a place belongs to, as tenants and coordinators know it."""
+    c = communities()[community]
+    if community.startswith("Darwin ("):
+        return "Darwin"
+    if community.startswith("Palmerston"):
+        return "Palmerston"
+    if c.nt_region == "Greater Darwin":
+        return "Darwin rural"
+    return c.nt_region
+
+
 def road_km(a: str, b: str) -> float:
     return _distances()[(a, b)][1]
 

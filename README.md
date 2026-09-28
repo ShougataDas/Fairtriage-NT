@@ -14,7 +14,7 @@ Built for the CDU IT Code Fair, Trusted AI decision-support challenge.
 ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-database-47A248?logo=mongodb&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-334%20passing-2f6b4f)
+![Tests](https://img.shields.io/badge/tests-335%20passing-2f6b4f)
 
 ---
 
@@ -31,8 +31,9 @@ Built for the CDU IT Code Fair, Trusted AI decision-support challenge.
 - Track the repair by reference number, including the trip that will reach you.
 
 **For staff**
-- A live, ranked queue with filters, search, a "needs a phone call" list, and
-  **CSV / Excel download**.
+- A live, ranked queue with an **area-by-area chart** of open repairs by
+  priority (click an area to filter), search, a "needs a phone call" list,
+  and **CSV / Excel download**.
 - Each job shows the arithmetic behind its priority, flags that need a person,
   and exactly what the tenant was told. Approve, change the tier (with a reason
   the tenant sees), or ask for more information.
@@ -116,16 +117,16 @@ The full design, test findings and evaluation are in
     `mongodb+srv://...` connection string), or
   - Docker: `docker compose up` starts MongoDB and the backend together.
 
-### 1. Clone and configure
+### 1. Clone
 
 ```bash
-git clone <this repository's URL>
-cd fairtriage
-cp .env.example .env
+git clone https://github.com/ShougataDas/Fairtriage-NT.git
+cd Fairtriage-NT
 ```
 
-On Windows PowerShell, use `copy .env.example .env` instead. The defaults work
-with a local MongoDB and need no API keys.
+No settings file is needed: the defaults work with a local MongoDB and no API
+keys. To change a setting, create a file named `.env` in this folder (it is
+never committed) with any of the variables under [Configuration](#configuration).
 
 ### 2. Backend
 
@@ -166,7 +167,14 @@ and 3.
 
 ## Configuration
 
-Settings are read from `.env` (see [`.env.example`](.env.example)).
+Settings are read from environment variables, or from a `.env` file in the
+project folder. `.env` is ignored by git, so keys never reach the repository.
+For example:
+
+```
+FAIRTRIAGE_MONGO_URL=mongodb+srv://user:password@cluster0.example.mongodb.net
+FAIRTRIAGE_EXTRACTOR=keyword
+```
 
 | Variable | Default | Purpose |
 |---|---|---|
@@ -174,7 +182,7 @@ Settings are read from `.env` (see [`.env.example`](.env.example)).
 | `FAIRTRIAGE_MONGO_DB` | `fairtriage` | Database name |
 | `FAIRTRIAGE_EXTRACTOR` | `keyword` | Who reads messages: `keyword` (offline engine), `gemini`, `openai`, `anthropic` |
 | `GEMINI_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | empty | Key for the chosen AI reader |
-| `FAIRTRIAGE_<PROVIDER>_MODEL` | see `.env.example` | Override the model name |
+| `FAIRTRIAGE_GEMINI_MODEL` / `_OPENAI_MODEL` / `_ANTHROPIC_MODEL` | `gemini-3.1-flash-lite` / `gpt-4.1-mini` / `claude-haiku-4-5-20251001` | Override the model name |
 | `FAIRTRIAGE_LLM_BUDGET_S` | `12` | Longest a tenant waits for a model before the engine answers |
 
 Every ranking weight, service target, wait assumption and trip rule is in
@@ -189,7 +197,7 @@ python scripts/run_scenarios.py
 python scripts/run_eval.py
 ```
 
-The first runs 334 tests on an in-memory database, so no server is needed.
+The first runs 335 tests on an in-memory database, so no server is needed.
 The second runs the 16 demo scenarios in [TEST_CASES.md](TEST_CASES.md). The
 third scores reading against the 12,000-row dataset in `data/`.
 
@@ -239,7 +247,7 @@ frontend/            Next.js web app (presentation only; calls the API)
 config/policy.yaml   Every weight and threshold
 reference/           Communities, road network, crews, road status
 scripts/             Seeding, evaluation, scenario runner, data builders
-tests/               334 tests
+tests/               335 tests
 docs/DESIGN.md       Design notes, test findings, evaluation
 ```
 

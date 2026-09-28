@@ -5,17 +5,18 @@ import { Download, FileSpreadsheet, FileText } from "lucide-react";
 import { cx } from "@/lib/format";
 
 /** Download requests as CSV or Excel, using the filters on screen. */
-export function DownloadMenu({ tier, remote, q }: { tier: string; remote: boolean; q: string }) {
+export function DownloadMenu({ tier, remote, q, area = "" }: { tier: string; remote: boolean; q: string; area?: string }) {
   const [scope, setScope] = useState<"queue" | "all">("queue");
 
   const href = (format: "csv" | "xlsx") => {
     const p = new URLSearchParams({ format, scope });
     if (tier) p.set("tier", tier);
+    if (area) p.set("area", area);
     if (remote) p.set("remote", "true");
     if (q.trim()) p.set("q", q.trim());
     return `/api/export?${p}`;
   };
-  const filtered = Boolean(tier || remote || q.trim());
+  const filtered = Boolean(tier || remote || q.trim() || area);
 
   return (
     <section aria-labelledby="dl-title" className="flex flex-col gap-3 rounded-2xl border border-line bg-paper p-4 sm:flex-row sm:items-center sm:justify-between">

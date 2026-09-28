@@ -8,6 +8,7 @@ import { fetcher, type Contact, type QueueRow, type Tier } from "@/lib/api";
 import { TIERS, ago, cx, days, humanise, tierStyle } from "@/lib/format";
 import { Card, CardTitle, Empty, ErrorBox, PageHeader, Pill, Spinner, TierBadge, inputClass } from "@/components/ui";
 import { DownloadMenu } from "@/components/DownloadMenu";
+import { AreaChart } from "@/components/AreaChart";
 
 type Order = "need" | "cost";
 
@@ -16,6 +17,7 @@ export default function QueuePage() {
   const [tier, setTier] = useState<Tier | "">("");
   const [q, setQ] = useState("");
   const [onlyRemote, setOnlyRemote] = useState(false);
+  const [area, setArea] = useState("");
   const { data: rows, error, isLoading, mutate, isValidating } = useSWR<QueueRow[]>(`/api/queue?order=${order}`, fetcher, {
     refreshInterval: 15000,
   });
@@ -26,10 +28,11 @@ export default function QueuePage() {
     return (rows ?? []).filter(
       (r) =>
         (!tier || r.tier === tier) &&
+        (!area || r.area === area) &&
         (!onlyRemote || r.remote) &&
         (!needle || [r.request_id, r.community, r.text, r.trade].some((f) => f.toLowerCase().includes(needle))),
     );
-  }, [rows, tier, q, onlyRemote]);
+  }, [rows, tier, q, onlyRemote, area]);
 
   const counts = useMemo(() => {
     const c = { Immediate: 0, Urgent: 0, Routine: 0, past: 0 };
@@ -99,9 +102,26 @@ export default function QueuePage() {
         </Card>
       )}
 
-      <DownloadMenu tier={tier} remote={onlyRemote} q={q} />
+      {rows && rows.length > 0 && (
+        <AreaChart
+          rows={rows}
+          area={area}
+          onArea={(a) => {
+            setArea(a);
+            if (a) document.getElementById("queue-table")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+        />
+      )}
 
-      <Card className="p-0 sm:p-0">
+      <DownloadMenu tier={tier} remote={onlyRemote} q={q} area={area} />
+
+      <Card id="queue-table" className="scroll-mt-24 p-0 sm:p-0">
+        {area && (
+          <div className="flex items-center justify-between gap-3 border-b border-line bg-ink-soft px-4 py-2 text-sm">
+            <span><strong>Showing {area} only.</strong> {shown.length} repair{shown.length === 1 ? "" : "s"}.</span>
+            <button onClick={() => setArea("")} className="font-bold text-ink underline">Show all areas</button>
+          </div>
+        )}
         <div className="flex flex-col gap-3 border-b border-line p-4 lg:flex-row lg:items-center">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted" aria-hidden />
