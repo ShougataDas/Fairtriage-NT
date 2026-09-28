@@ -1,5 +1,6 @@
-# The Vercel backend project needs only the server, its config and reference data.
-frontend/
+# Read by EVERY Vercel project built from this repository, including the web
+# app (Root Directory: frontend), so it must never exclude frontend/.
+# Everything below is only needed for development, not by either deployment.
 tests/
 data/
 docs/
