@@ -1,0 +1,7 @@
+# Development: tests, demo seeding and evaluation. Not needed to run the server.
+-r requirements.txt
+pytest>=8.0
+httpx>=0.27              # FastAPI's TestClient
+mongomock>=4.1           # in-memory MongoDB for the tests
+pandas>=2.2              # seed_demo.py and run_eval.py read the dataset
+scikit-learn>=1.5        # run_eval.py

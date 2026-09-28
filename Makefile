@@ -1,7 +1,7 @@
 .PHONY: install matrix seed run web web-install test eval scenarios demo clean
 
 install:
-	pip install -r requirements.txt
+	pip install -r requirements-dev.txt
 
 matrix:
 	python scripts/build_distance_matrix.py

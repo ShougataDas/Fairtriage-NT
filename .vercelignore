@@ -1,0 +1,16 @@
+# The Vercel backend project needs only the server, its config and reference data.
+frontend/
+tests/
+data/
+docs/
+reports/
+scripts/
+.mongodb/
+.pytest_cache/
+__pycache__/
+*.md
+Dockerfile
+docker-compose.yml
+Makefile
+.env
+.env.*

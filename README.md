@@ -131,7 +131,7 @@ never committed) with any of the variables under [Configuration](#configuration)
 ### 2. Backend
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 python scripts/seed_demo.py
 python -m uvicorn fairtriage.api:app --reload --port 8000
 ```
@@ -251,12 +251,36 @@ tests/               335 tests
 docs/DESIGN.md       Design notes, test findings, evaluation
 ```
 
-## Deployment
+## Deployment (Vercel)
 
-The web app (`frontend/`) is a standard Next.js app and deploys to Vercel with
-`frontend` as the project root. It needs the backend reachable over HTTPS:
-set `FAIRTRIAGE_API` to its URL in the Vercel project settings. The backend
-needs a Python host and a MongoDB it can reach, such as MongoDB Atlas.
+The backend and the web app deploy as **two Vercel projects from this one
+repository**, with the data in **MongoDB Atlas**.
+
+**1. Database: MongoDB Atlas (free)**
+- Create a free cluster and a database user.
+- Under *Network Access*, allow `0.0.0.0/0`: Vercel functions have no fixed IP address.
+- Copy the connection string (`mongodb+srv://...`).
+- Optionally fill it with demo data from your own computer:
+  `FAIRTRIAGE_MONGO_URL="mongodb+srv://..." python scripts/seed_demo.py`
+
+**2. Backend project**
+- *New Project* → import this repository. Root Directory `./`, preset
+  **FastAPI**. It finds the app through `app.py`.
+- Environment variable: `FAIRTRIAGE_MONGO_URL` = your Atlas string. Add
+  `FAIRTRIAGE_EXTRACTOR` and a key only if you switch an AI reader on.
+- Deploy, then open `https://<backend>.vercel.app/api/health`: it should
+  report `"database": "connected"`.
+
+Vercel installs only `requirements.txt` (the server, about 210 MB). Tests,
+seeding and evaluation use `requirements-dev.txt`. `.vercelignore` leaves the
+web app, tests and dataset out of the backend bundle.
+
+**3. Web app project**
+- *New Project* → import the same repository again. Root Directory
+  **`frontend`**, preset **Next.js**.
+- Environment variable: `FAIRTRIAGE_API` = `https://<backend>.vercel.app`
+  (no trailing slash). The `/api` proxy is fixed at build time, so redeploy
+  after changing it.
 
 ## Limitations
 
