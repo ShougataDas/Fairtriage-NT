@@ -1,0 +1,358 @@
+"""HTTP layer. JSON under /api, HTML for tenant and coordinator.
+
+The tenant docket shows the VERIFIED explanation text verbatim. What the
+tenant reads is exactly what passed verify(), never a second rendering.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Annotated, Optional
+
+from fastapi import FastAPI, Form, HTTPException, Request as HttpRequest
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+from . import metrics, scheduler, service
+from .config import policy, reader_status
+from .reference import communities, road_km, trade_capacity
+from .schemas import ClarifyIn, DecisionIn, LodgeIn
+
+WEB = Path(__file__).parent / "web"
+app = FastAPI(title="FairTriage NT", version="3.0")
+app.mount("/static", StaticFiles(directory=WEB / "static"), name="static")
+T = Jinja2Templates(directory=WEB / "templates")
+T.env.globals["reader_status"] = reader_status
+
+
+def _error(request, message: str):
+    r = T.TemplateResponse(request, "_error.html", {"message": message})
+    r.headers["HX-Retarget"] = "#outcome"
+    r.headers["HX-Reswap"] = "innerHTML"
+    return r
+
+
+def _paragraphs(text: str) -> list[list[str]]:
+    return [[ln for ln in block.split("\n") if ln.strip()]
+            for block in text.split("\n\n") if block.strip()]
+
+
+def _community_groups() -> list[tuple[str, list[str]]]:
+    order = ["Darwin", "Palmerston", "Darwin rural", "Top End", "Big Rivers", "Arnhem"]
+    groups: dict[str, list[str]] = {g: [] for g in order}
+    for name, c in communities().items():
+        if name.startswith("Darwin ("):
+            g = "Darwin"
+        elif name.startswith("Palmerston"):
+            g = "Palmerston"
+        elif c.nt_region == "Greater Darwin":
+            g = "Darwin rural"
+        else:
+            g = c.nt_region
+        groups.setdefault(g, []).append(name)
+    return [(g, sorted(v)) for g, v in groups.items() if v]
+
+
+def _docket_ctx(rid: str, result: dict) -> dict:
+    return {"request_id": rid, "tier": result["tier"],
+            "paragraphs": _paragraphs(result["explanation_tenant"])}
+
+
+# ---------------------------------------------------------------------------
+# JSON API
+# ---------------------------------------------------------------------------
+
+@app.post("/api/requests")
+def api_lodge(inp: LodgeIn):
+    try:
+        return service.lodge(inp)
+    except service.Invalid as e:
+        raise HTTPException(422, str(e))
+
+
+@app.get("/api/requests/{rid}")
+def api_get(rid: str):
+    try:
+        return service.request_view(rid)
+    except service.NotFound:
+        raise HTTPException(404, "no such request")
+
+
+@app.post("/api/requests/{rid}/clarify")
+def api_clarify(rid: str, inp: ClarifyIn):
+    try:
+        return service.clarify(rid, inp.answer)
+    except service.NotFound:
+        raise HTTPException(404, "no such request")
+    except service.Invalid as e:
+        raise HTTPException(409, str(e))
+
+
+@app.post("/api/requests/{rid}/decision")
+def api_decide(rid: str, d: DecisionIn):
+    try:
+        return service.decide(rid, d)
+    except service.NotFound:
+        raise HTTPException(404, "no such request")
+    except service.Invalid as e:
+        raise HTTPException(422, str(e))
+
+
+@app.get("/api/queue")
+def api_queue(tier: Optional[str] = None, community: Optional[str] = None,
+              order: str = "need"):
+    """The ranked queue. order=cost shows, for contrast only, how an
+    efficiency-first system would reorder it; `shift` is the change in place."""
+    rows = service.queue_view(tier, community)
+    if order == "cost":
+        need_pos = {r["request_id"]: r["position"] for r in rows}
+        rows = _cost_order(rows)
+        for i, r in enumerate(rows, 1):
+            r["shift"] = need_pos[r["request_id"]] - i
+            r["display_pos"] = i
+    else:
+        for r in rows:
+            r["shift"], r["display_pos"] = 0, r["position"]
+    return rows
+
+
+@app.get("/api/export")
+def api_export(format: str = "csv", scope: str = "queue", tier: Optional[str] = None,
+               remote: Optional[bool] = None, q: Optional[str] = None):
+    """Download requests as CSV or Excel. scope=queue (ranked, as on screen) or all."""
+    from . import export
+    if format not in ("csv", "xlsx") or scope not in ("queue", "all"):
+        raise HTTPException(422, "format must be csv or xlsx; scope must be queue or all")
+    data = export.rows(scope, tier or None, remote, q)
+    body = export.to_csv(data) if format == "csv" else export.to_xlsx(
+        data, "Queue" if scope == "queue" else "All requests")
+    media = ("text/csv; charset=utf-8" if format == "csv" else
+             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    return Response(body, media_type=media, headers={
+        "Content-Disposition": f'attachment; filename="{export.filename(format)}"'})
+
+
+@app.get("/api/communities")
+def api_communities():
+    cs = communities()
+    return [{"group": g, "communities": [{"name": n, "remote": cs[n].remote} for n in names]}
+            for g, names in _community_groups()]
+
+
+@app.get("/api/contacts")
+def api_contacts():
+    """Reports a person must phone about: still unclear, or a withdrawal."""
+    return service.contact_list()
+
+
+@app.get("/api/trips")
+def api_trips():
+    """Confirmed trips, newest first."""
+    return scheduler.trips_view()
+
+
+@app.get("/api/trips/preview")
+def api_trip_preview():
+    """The recommended trips right now. Recomputed on every call, so it follows
+    the queue, priorities and crew locations as they change. Stores nothing."""
+    return {"teams": scheduler.team_locations(), "rules": policy()["trips"],
+            "trips": [scheduler.to_dict(t) for t in scheduler.plan(commit=False)]}
+
+
+@app.post("/api/trips/plan")
+def api_plan(anchor: Optional[str] = None):
+    """Confirm the recommended trips (or just the one led by `anchor`): jobs
+    become scheduled with an arrival time."""
+    plans = scheduler.plan(commit=True, only=anchor)
+    return [scheduler.to_dict(t) for t in plans if anchor is None or t.anchor.request_id == anchor]
+
+
+@app.post("/api/teams/{trade_region}")
+def api_team(trade_region: str, location: str):
+    try:
+        scheduler.set_team_location(trade_region, location)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    return scheduler.team_locations()
+
+
+@app.get("/api/metrics/equity")
+def api_equity():
+    return metrics.equity()
+
+
+@app.get("/api/health")
+def health():
+    from . import db
+    return {"ok": True, "database": "connected" if db.ping() else "unreachable",
+            "policy": policy()["version"], "communities": len(communities()),
+            "reader": reader_status(), "rules": _rules_fingerprint(),
+            "service_targets_verified": policy().get("service_targets_verified", False)}
+
+
+def _rules_fingerprint() -> str:
+    from .extract import _code_fingerprint
+    return _code_fingerprint()
+
+
+# ---------------------------------------------------------------------------
+# Tenant
+# ---------------------------------------------------------------------------
+
+@app.get("/", response_class=HTMLResponse)
+def index():
+    return RedirectResponse("/tenant", status_code=302)
+
+
+@app.get("/tenant", response_class=HTMLResponse)
+def tenant_form(request: HttpRequest):
+    return T.TemplateResponse(request, "tenant_lodge.html",
+                              {"section": "tenant", "community_groups": _community_groups()})
+
+
+@app.post("/tenant/lodge", response_class=HTMLResponse)
+def tenant_lodge(request: HttpRequest, text: Annotated[str, Form()],
+                 community: Annotated[str, Form()],
+                 vulnerability: Annotated[list[str], Form()] = []):
+    text = text.strip()
+    if not text:
+        return _error(request, "Write a few words about what is wrong.")
+    try:
+        out = service.lodge(LodgeIn(text=text, community=community,
+                                    vulnerability=vulnerability))
+    except service.Invalid as e:
+        return _error(request, str(e))
+    if out["status"] == "awaiting_tenant":
+        return T.TemplateResponse(request, "_question.html",
+                                  {"question": out["question"],
+                                   "request_id": out["request_id"]})
+    return T.TemplateResponse(request, "_docket.html", _docket_ctx(out["request_id"], out))
+
+
+@app.post("/tenant/{rid}/clarify", response_class=HTMLResponse)
+def tenant_clarify(request: HttpRequest, rid: str, answer: Annotated[str, Form()]):
+    answer = answer.strip()
+    if not answer:
+        return _error(request, "Type an answer first.")
+    try:
+        out = service.clarify(rid, answer)
+    except (service.NotFound, service.Invalid) as e:
+        return _error(request, str(e))
+    return T.TemplateResponse(request, "_docket.html", _docket_ctx(rid, out))
+
+
+@app.get("/tenant/{rid}", response_class=HTMLResponse)
+def tenant_record(request: HttpRequest, rid: str):
+    try:
+        v = service.request_view(rid)
+    except service.NotFound:
+        raise HTTPException(404, "No repair with that reference.")
+    if v["status"] == "awaiting_tenant" or not v["assessment"]:
+        ctx = {"section": "tenant", "question": v["question"], "request_id": rid}
+    else:
+        a = v["assessment"]
+        ctx = {"section": "tenant", "question": None, "request_id": rid,
+               "tier": a["tier"], "paragraphs": _paragraphs(a["explanation_tenant"]),
+               "trip_update": (v["trip"] or {}).get("tenant_update")}
+    return T.TemplateResponse(request, "tenant_result.html", ctx)
+
+
+# ---------------------------------------------------------------------------
+# Coordinator
+# ---------------------------------------------------------------------------
+
+def _cost_order(rows: list[dict]) -> list[dict]:
+    """What an efficiency-first system would do: nearest first, then tier.
+
+    Shown for contrast only. FairTriage never ranks this way.
+    """
+    from .policy import TIER_ORDER
+
+    def km(r):
+        c = communities()[r["community"]]
+        depot = trade_capacity()[c.trade_region]["depot"]
+        return road_km(depot, r["community"])
+    from .reference import travel_days
+    return sorted(rows, key=lambda r: (travel_days(r["community"]), km(r),
+                                       TIER_ORDER[r["tier"]]))
+
+
+@app.get("/coordinator", response_class=HTMLResponse)
+def coord_queue(request: HttpRequest, order: str = "need", tier: str = "",
+                community: str = ""):
+    rows = service.queue_view(tier or None, community or None)
+    need_pos = {r["request_id"]: i for i, r in enumerate(rows, 1)}
+    moved_down = 0
+    if order == "cost":
+        rows = _cost_order(rows)
+        for i, r in enumerate(rows, 1):
+            r["shift"] = need_pos[r["request_id"]] - i
+            r["display_pos"] = i
+            moved_down += int(r["shift"] < 0 and r["remote"])
+    else:
+        for r in rows:
+            r["shift"] = 0
+            r["display_pos"] = r["position"]
+    return T.TemplateResponse(request, "coord_queue.html", {
+        "section": "queue", "rows": rows, "order": order, "tier": tier,
+        "community": community, "communities": list(communities()),
+        "moved_down": moved_down, "policy_version": policy()["version"],
+        "contacts": service.contact_list(),
+        "rules_version": _rules_fingerprint()})
+
+
+@app.get("/coordinator/trips", response_class=HTMLResponse)
+def coord_trips(request: HttpRequest, error: str = ""):
+    t = policy()["trips"]
+    return T.TemplateResponse(request, "coord_trips.html", {
+        "section": "trips", "error": error,
+        "preview": [scheduler.to_dict(p) for p in scheduler.plan(commit=False)],
+        "trips": scheduler.trips_view(), "teams": scheduler.team_locations(),
+        "community_groups": _community_groups(), "t": t, "r": t["routing"],
+        "multiple": t["community_threshold_multiple"]})
+
+
+@app.post("/coordinator/team")
+def coord_team(trade_region: Annotated[str, Form()], location: Annotated[str, Form()]):
+    try:
+        scheduler.set_team_location(trade_region, location)
+    except ValueError as e:
+        from urllib.parse import quote
+        return RedirectResponse(f"/coordinator/trips?error={quote(str(e))}", status_code=303)
+    return RedirectResponse("/coordinator/trips", status_code=303)
+
+
+@app.post("/coordinator/trips/plan")
+def coord_plan():
+    scheduler.plan(commit=True)
+    return RedirectResponse("/coordinator/trips", status_code=303)
+
+
+@app.get("/coordinator/equity", response_class=HTMLResponse)
+def coord_equity(request: HttpRequest):
+    return T.TemplateResponse(request, "coord_equity.html",
+                              {"section": "equity", "m": metrics.equity()})
+
+
+@app.get("/coordinator/{rid}", response_class=HTMLResponse)
+def coord_detail(request: HttpRequest, rid: str, error: str = ""):
+    try:
+        v = service.request_view(rid)
+    except service.NotFound:
+        raise HTTPException(404, "No request with that reference.")
+    return T.TemplateResponse(request, "coord_detail.html",
+                              {"section": "queue", "r": v, "error": error})
+
+
+@app.post("/coordinator/{rid}/decide")
+def coord_decide(rid: str, action: Annotated[str, Form()],
+                 to_tier: Annotated[str, Form()] = "",
+                 reason: Annotated[str, Form()] = ""):
+    try:
+        service.decide(rid, DecisionIn(action=action, to_tier=to_tier or None,
+                                       reason=reason or None))
+    except service.Invalid as e:
+        from urllib.parse import quote
+        return RedirectResponse(f"/coordinator/{rid}?error={quote(str(e))}", status_code=303)
+    return RedirectResponse(f"/coordinator/{rid}", status_code=303)

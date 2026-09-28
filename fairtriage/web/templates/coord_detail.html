@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}{{ r.request_id }} | FairTriage NT{% endblock %}
+{% block main %}
+{% set a = r.assessment %}{% set f = a.facts if a else {} %}
+<div class="wide">
+  <p><a href="/coordinator">Back to the queue</a></p>
+  <h1>{{ r.request_id }}</h1>
+  <p class="lede">{{ r.community }}. Lodged {{ r.lodged_at[:16].replace('T',' ') }} UTC. Status: {{ r.status.replace('_',' ') }}.</p>
+
+  <div class="grid2">
+    <section class="panel">
+      <h2>What the tenant wrote</h2>
+      <p class="ev">“{{ r.text_original }}”</p>
+      {% if r.text_normalised and r.text_normalised != r.text_original %}
+        <p class="muted">Spelling-normalised reading: “{{ r.text_normalised }}”</p>{% endif %}
+      {% if r.question %}<p><strong>Asked:</strong> {{ r.question }}<br><strong>Answer:</strong> {{ r.answer or 'waiting for the tenant' }}</p>{% endif %}
+      {% if f.evidence %}<p><strong>Evidence used:</strong> <span class="ev">“{{ f.evidence }}”</span></p>{% endif %}
+    </section>
+
+    {% if a %}
+    <section class="panel">
+      <h2>Recommendation: <span class="tier {{ a.tier }}">{{ a.tier }}</span></h2>
+      <p>{{ f.tier_reason|capitalize }}.</p>
+      {% if f.components %}
+      <table class="arith">
+        <tr><th>Factor</th><th>Value</th><th class="num">Raw</th><th class="num">Weight</th><th class="num">Adds</th></tr>
+        {% for c in f.components %}
+        <tr><td>{{ c.name }}</td><td>{{ c.detail }}</td><td class="num">{{ '%.2f'|format(c.raw) }}</td>
+            <td class="num">{{ '%.2f'|format(c.weight) }}</td><td class="num">{{ '%.3f'|format(c.contribution) }}</td></tr>
+        {% endfor %}
+        <tr><td colspan="4"><strong>Need score</strong></td><td class="num"><strong>{{ '%.0f'|format(a.need) }}</strong></td></tr>
+      </table>
+      <p class="muted" style="margin-top:0.6rem">No distance term exists in this calculation. Rank {{ f.rank }} of {{ f.tier_size }}; location-free rank {{ f.darwin_rank }}.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+  </div>
+
+  {% if a and a.reachability %}
+  <section class="panel">
+    <h2>Reachability, shown separately</h2>
+    <p>{{ a.reachability.access|capitalize }}. About {{ '%.0f'|format(a.reachability.road_km_est) }} km by road (estimate). Road {{ a.reachability.road_status }}{% if a.reachability.road_snapshot_at %}, snapshot {{ a.reachability.road_snapshot_at[:16].replace('T',' ') }}{% endif %}.</p>
+    {% if f.wait %}<p>Wait estimate {{ f.wait.range_text }}. The same job in Darwin: about {{ f.wait.darwin }} days. Gap {{ f.wait.gap_days }} days, from travel, road status and regional crew numbers.</p>{% endif %}
+    <p class="muted">Reachability affects when a tradesperson can arrive. It never changes the tier or the need score.</p>
+  </section>
+  {% endif %}
+
+  {% if r.trip %}
+  <section class="panel">
+    <h2>On a confirmed trip</h2>
+    <p><a href="/coordinator/trips#{{ r.trip.trip_id }}">{{ r.trip.trip_id }}</a>: stop {{ r.trip.stop }} of {{ r.trip.stops }}.
+       Expected arrival {{ r.trip.eta_at[:16].replace('T',' ') }} UTC (about {{ r.trip.eta_days }} days from now).</p>
+    {% if r.trip.tenant_update %}<p class="muted">The tenant sees: “{{ r.trip.tenant_update }}”</p>{% endif %}
+  </section>
+  {% endif %}
+
+  {% if a and a.flags %}
+  <section class="panel">
+    <h2>Flags</h2>
+    <ul>{% for fl in a.flags %}<li><strong>{{ fl.code.replace('_',' ') }}</strong>: {{ fl.detail }}. {{ fl.action|capitalize }}.</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+
+  {% if a %}
+  <div class="grid2">
+    <section class="panel">
+      <h2>Decision</h2>
+      <form method="post" action="/coordinator/{{ r.request_id }}/decide" style="display:grid;gap:0.8rem">
+        <div><label for="action">Action</label>
+          <select id="action" name="action">
+            <option value="approve">Approve recommendation</option>
+            <option value="override">Change tier</option>
+            <option value="request_info">Ask the tenant for more information</option>
+          </select></div>
+        <div><label for="to_tier">New tier <span class="hint">only when changing tier</span></label>
+          <select id="to_tier" name="to_tier"><option value="">No change</option>
+            {% for t in ['Immediate','Urgent','Routine'] %}<option>{{ t }}</option>{% endfor %}</select></div>
+        <div><label for="reason">Reason <span class="hint">required to change the tier. The tenant is shown this.</span></label>
+          <input type="text" id="reason" name="reason" maxlength="400"></div>
+        {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+        <button type="submit">Record decision</button>
+      </form>
+    </section>
+    <section class="panel">
+      <h2>What the tenant sees</h2>
+      <pre class="plain">{{ a.explanation_tenant }}</pre>
+    </section>
+  </div>
+  {% endif %}
+
+  {% if r.decisions %}
+  <section class="panel">
+    <h2>Decision history</h2>
+    <table class="arith"><tr><th>When</th><th>Who</th><th>Action</th><th>From</th><th>To</th><th>Reason</th></tr>
+    {% for d in r.decisions %}<tr><td>{{ d.at[:16].replace('T',' ') }}</td><td>{{ d.actor }}</td><td>{{ d.action }}</td><td>{{ d['from'] }}</td><td>{{ d.to }}</td><td>{{ d.reason or '' }}</td></tr>{% endfor %}
+    </table>
+  </section>
+  {% endif %}
+
+  <section class="panel">
+    <h2>Model readings</h2>
+    <table class="arith"><tr><th>Text read</th><th>Extractor</th><th>Cache</th><th>Fallback</th><th>Danger</th><th>Essential</th><th>Domain</th></tr>
+    {% for e in r.extractions %}<tr><td>{{ e.source }}</td><td>{{ e.extractor }}</td><td>{{ 'hit' if e.cache_hit else 'miss' }}</td><td>{{ 'yes' if e.fallback else 'no' }}</td>
+      <td>{{ e.payload.endangers_person }}</td><td>{{ e.payload.essential_service_lost }}</td><td>{{ e.payload.hazard_domain }}</td></tr>{% endfor %}
+    </table>
+    <p class="muted" style="margin-top:0.6rem">Every reading is kept. If the original and the spelling-normalised text disagree, the more cautious reading is used and the job is flagged.</p>
+  </section>
+</div>
+{% endblock %}

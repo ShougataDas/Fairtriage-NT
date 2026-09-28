@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/* FairTriage design tokens. Colours carry meaning (tier), so each has a
+   text-safe shade (>= 4.5:1 on white) and a soft background shade. */
+@theme {
+  --font-sans: var(--font-atkinson), ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink: #2b3a8f;          /* primary: links, buttons */
+  --color-ink-soft: #eef0fa;
+  --color-ink-strong: #1f2a6b;
+
+  --color-immediate: #b3261e;
+  --color-immediate-soft: #fdecea;
+  --color-urgent: #9a5a00;
+  --color-urgent-soft: #fdf3e2;
+  --color-routine: #2f6b4f;
+  --color-routine-soft: #e8f3ed;
+
+  --color-paper: #ffffff;
+  --color-canvas: #f5f6f8;
+  --color-line: #e2e4e9;
+  --color-muted: #5b6068;
+  --color-graphite: #1f2329;
+  --color-canary: #fbf3c8;
+  --color-canary-edge: #e3d27c;
+}
+
+html {
+  font-size: 17px;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-graphite);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

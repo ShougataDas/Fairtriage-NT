@@ -1,0 +1,13 @@
+<div class="question">
+  <h2>One question before we rank this</h2>
+  <p>{{ question }}</p>
+  <form hx-post="/tenant/{{ request_id }}/clarify" hx-target="#tenant-area" hx-swap="innerHTML"
+        hx-disabled-elt="find button">
+    <label for="answer" class="hint">Your answer</label>
+    <input type="text" id="answer" name="answer" required maxlength="500" autofocus>
+    <p></p>
+    <button type="submit">Send answer</button>
+  </form>
+  <div id="outcome" aria-live="polite"></div>
+  <p class="muted" style="margin-top:1rem">Your report is saved as {{ request_id }}. It will not be ranked until we know this, because the answer changes how urgent it is.</p>
+</div>

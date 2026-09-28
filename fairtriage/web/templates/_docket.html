@@ -1,0 +1,13 @@
+<article class="docket" aria-label="Your repair record">
+  <div class="copy-line">
+    <span>Customer copy</span>
+    <span class="ref">{{ request_id }}</span>
+  </div>
+  {% set emergency = paragraphs and paragraphs[0] and paragraphs[0][0].startswith('If there is a fire, or anyone is hurt, call 000') %}
+  {% if emergency %}<p class="emergency" role="alert">{{ paragraphs[0]|join(' ') }}</p>{% endif %}
+  <div class="stamp {{ tier }}">{% if tier == 'NotInQueue' %}Not a repair job{% else %}{{ tier }}{% endif %}</div>
+  {% for para in (paragraphs[1:] if emergency else paragraphs) %}
+    <p>{% for line in para %}{% if line.startswith('You told us:') or line.startswith('We asked:') %}<span class="quote">{{ line }}</span>{% elif line.startswith('Where you live was not used') %}<span class="not-counted">{{ line }}</span>{% else %}{{ line }}{% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+  {% endfor %}
+</article>
+<p class="muted" style="margin-top:1rem"><a href="/tenant/{{ request_id }}">Open this record</a>. Keep the reference number if you contact us.</p>

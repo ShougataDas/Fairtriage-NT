@@ -1,0 +1,65 @@
+community,nt_region,remote,lat,lon,access,wet_season_isolation,trade_region
+Darwin (Ludmilla),Greater Darwin,false,-12.418,130.852,road,none,Darwin
+Darwin (Nightcliff),Greater Darwin,false,-12.382,130.853,road,none,Darwin
+Darwin (Malak),Greater Darwin,false,-12.393,130.905,road,none,Darwin
+Darwin (Karama),Greater Darwin,false,-12.400,130.915,road,none,Darwin
+Palmerston,Greater Darwin,false,-12.480,130.984,road,none,Darwin
+Humpty Doo,Greater Darwin,false,-12.570,131.100,road,low,Darwin
+Batchelor,Top End,false,-13.049,131.029,road,low,Darwin
+Adelaide River,Top End,false,-13.238,131.106,road,low,Darwin
+Belyuen,Top End,true,-12.540,130.680,road,moderate,Darwin
+Wurrumiyanga,Top End,true,-11.760,130.630,air_or_barge,high,Darwin
+Pine Creek,Big Rivers,false,-13.823,131.833,road,low,Katherine
+Katherine,Big Rivers,false,-14.465,132.264,road,low,Katherine
+Peppimenarti,Top End,true,-14.150,130.090,road,very high,Katherine
+Wadeye,Top End,true,-14.240,129.520,road,very high,Katherine
+Gunbalanya,Arnhem,true,-12.320,133.060,road,very high,Arnhem
+Maningrida,Arnhem,true,-12.060,134.230,road,very high,Arnhem
+Galiwinku,Arnhem,true,-12.030,135.570,air_or_barge,very high,Arnhem
+Numbulwar,Big Rivers,true,-14.270,135.740,road,very high,Arnhem
+Darwin (City),Greater Darwin,false,-12.4634,130.8456,road,none,Darwin
+Darwin (Larrakeyah),Greater Darwin,false,-12.4550,130.8330,road,none,Darwin
+Darwin (Stuart Park),Greater Darwin,false,-12.4460,130.8430,road,none,Darwin
+Darwin (The Gardens),Greater Darwin,false,-12.4480,130.8360,road,none,Darwin
+Darwin (Parap),Greater Darwin,false,-12.4300,130.8420,road,none,Darwin
+Darwin (Fannie Bay),Greater Darwin,false,-12.4230,130.8360,road,none,Darwin
+Darwin (Bayview),Greater Darwin,false,-12.4410,130.8550,road,none,Darwin
+Darwin (Woolner),Greater Darwin,false,-12.4400,130.8480,road,none,Darwin
+Darwin (Winnellie),Greater Darwin,false,-12.4260,130.8870,road,none,Darwin
+Darwin (Coconut Grove),Greater Darwin,false,-12.3980,130.8530,road,none,Darwin
+Darwin (Rapid Creek),Greater Darwin,false,-12.3810,130.8620,road,none,Darwin
+Darwin (Millner),Greater Darwin,false,-12.3910,130.8630,road,none,Darwin
+Darwin (Jingili),Greater Darwin,false,-12.3890,130.8740,road,none,Darwin
+Darwin (Moil),Greater Darwin,false,-12.3880,130.8810,road,none,Darwin
+Darwin (Alawa),Greater Darwin,false,-12.3800,130.8740,road,none,Darwin
+Darwin (Brinkin),Greater Darwin,false,-12.3710,130.8700,road,none,Darwin
+Darwin (Nakara),Greater Darwin,false,-12.3710,130.8760,road,none,Darwin
+Darwin (Tiwi),Greater Darwin,false,-12.3590,130.8780,road,none,Darwin
+Darwin (Casuarina),Greater Darwin,false,-12.3740,130.8820,road,none,Darwin
+Darwin (Wagaman),Greater Darwin,false,-12.3810,130.8860,road,none,Darwin
+Darwin (Wanguri),Greater Darwin,false,-12.3720,130.8870,road,none,Darwin
+Darwin (Wulagi),Greater Darwin,false,-12.3840,130.8970,road,none,Darwin
+Darwin (Anula),Greater Darwin,false,-12.3930,130.8930,road,none,Darwin
+Darwin (Marrara),Greater Darwin,false,-12.3990,130.8930,road,none,Darwin
+Darwin (Leanyer),Greater Darwin,false,-12.3650,130.8960,road,none,Darwin
+Darwin (Lyons),Greater Darwin,false,-12.3570,130.8870,road,none,Darwin
+Darwin (Muirhead),Greater Darwin,false,-12.3570,130.8970,road,none,Darwin
+Darwin (Berrimah),Greater Darwin,false,-12.4360,130.9230,road,none,Darwin
+Darwin (Knuckey Lagoon),Greater Darwin,false,-12.4350,130.9480,road,none,Darwin
+Palmerston (Gray),Greater Darwin,false,-12.4930,130.9830,road,none,Darwin
+Palmerston (Driver),Greater Darwin,false,-12.4860,130.9750,road,none,Darwin
+Palmerston (Moulden),Greater Darwin,false,-12.5040,130.9760,road,none,Darwin
+Palmerston (Woodroffe),Greater Darwin,false,-12.4930,130.9930,road,none,Darwin
+Palmerston (Gunn),Greater Darwin,false,-12.4880,131.0010,road,none,Darwin
+Palmerston (Rosebery),Greater Darwin,false,-12.5090,130.9900,road,none,Darwin
+Palmerston (Bakewell),Greater Darwin,false,-12.4980,130.9990,road,none,Darwin
+Palmerston (Durack),Greater Darwin,false,-12.4730,130.9730,road,none,Darwin
+Palmerston (Farrar),Greater Darwin,false,-12.4760,130.9960,road,none,Darwin
+Palmerston (Johnston),Greater Darwin,false,-12.4900,131.0120,road,none,Darwin
+Palmerston (Zuccoli),Greater Darwin,false,-12.5080,131.0050,road,none,Darwin
+Palmerston (Bellamack),Greater Darwin,false,-12.5170,130.9800,road,none,Darwin
+Howard Springs,Greater Darwin,false,-12.4970,131.0480,road,low,Darwin
+Coolalinga,Greater Darwin,false,-12.5230,131.0450,road,low,Darwin
+Virginia,Greater Darwin,false,-12.5270,131.0240,road,low,Darwin
+Girraween,Greater Darwin,false,-12.5300,131.0900,road,low,Darwin
+Berry Springs,Greater Darwin,false,-12.7050,130.9950,road,low,Darwin

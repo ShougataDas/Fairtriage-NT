@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}FairTriage NT{% endblock %}</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/htmx.min.js" defer></script>
+</head>
+<body>
+<header class="bar">
+  <strong>FairTriage NT</strong>
+  <nav aria-label="Main">
+    <a href="/tenant" {% if section == 'tenant' %}aria-current="page"{% endif %}>Report a repair</a>
+    <a href="/coordinator" {% if section == 'queue' %}aria-current="page"{% endif %}>Queue</a>
+    <a href="/coordinator/trips" {% if section == 'trips' %}aria-current="page"{% endif %}>Trips</a>
+    <a href="/coordinator/equity" {% if section == 'equity' %}aria-current="page"{% endif %}>Fairness</a>
+  </nav>
+</header>
+<main>{% block main %}{% endblock %}</main>
+</body>
+</html>

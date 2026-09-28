@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Fairness | FairTriage NT{% endblock %}
+{% block main %}
+<div class="wide">
+  <h1>Fairness measurements</h1>
+  <p class="lede">Numbers computed from the live queue, not claims about it.</p>
+
+  <div class="metrics">
+    <section class="panel">
+      <h2>Rank ignores location</h2>
+      <div class="metric">{{ m.rank_location_invariance.pct }}%</div>
+      <p>{{ m.rank_location_invariance.identical }} of {{ m.rank_location_invariance.checked }} jobs have exactly the rank they would have with location removed.</p>
+    </section>
+    <section class="panel">
+      <h2>Remote jobs on someone else's trip</h2>
+      <div class="metric">{{ m.remote_jobs_scheduled.passenger_share_pct if m.remote_jobs_scheduled.passenger_share_pct is not none else 'n/a' }}{% if m.remote_jobs_scheduled.passenger_share_pct is not none %}%{% endif %}</div>
+      <p>{{ m.remote_jobs_scheduled.as_passengers }} rode along, {{ m.remote_jobs_scheduled.on_own_trip }} had their own trip. A high share means remote work depends on other people's emergencies.</p>
+    </section>
+    <section class="panel">
+      <h2>Repeat deferrals</h2>
+      <div class="metric">{{ m.deferrals.remote.at_or_above_2 }} remote, {{ m.deferrals.urban.at_or_above_2 }} urban</div>
+      <p>Jobs passed over two or more times. Rank cannot rise after lodgement, so this is how slow neglect shows up.</p>
+    </section>
+  </div>
+
+  <section class="panel">
+    <h2>Expected wait, remote against urban</h2>
+    <p>Same tier, same rank rules. The difference is travel, roads and crew numbers.</p>
+    <table class="arith">
+      <tr><th>Tier</th><th class="num">Remote (days)</th><th class="num">Urban (days)</th><th class="num">Gap</th><th class="num">Remote waits</th><th class="num">Jobs</th></tr>
+      {% for tier in ['Immediate','Urgent','Routine'] %}{% set g = m.wait_gap_by_tier.get(tier) %}{% if g %}
+      <tr><td class="tier {{ tier }}">{{ tier }}</td><td class="num">{{ g.remote_days }}</td><td class="num">{{ g.urban_days }}</td>
+          <td class="num">{{ g.gap_days }}</td><td class="num">{% if g.ratio %}{{ g.ratio }}× as long{% endif %}</td><td class="num">{{ g.n_remote }} / {{ g.n_urban }}</td></tr>
+      {% endif %}{% endfor %}
+    </table>
+  </section>
+  <p class="muted">Crew numbers per region are placeholders and distances are estimates, so treat the wait figures as illustrative until real capacity data is supplied.</p>
+</div>
+{% endblock %}

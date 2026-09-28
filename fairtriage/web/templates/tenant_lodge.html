@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Report a repair | FairTriage NT{% endblock %}
+{% block main %}
+<div class="narrow">
+  <h1>Report a repair</h1>
+  <p class="lede">Tell us what is wrong in your own words. Short is fine. You do not need to use the right terms.</p>
+
+  <div id="tenant-area">
+  <form class="lodge" hx-post="/tenant/lodge" hx-target="#tenant-area" hx-swap="innerHTML"
+        hx-disabled-elt="find button">
+    <div>
+      <label for="text">What is wrong?</label>
+      <textarea id="text" name="text" required maxlength="2000"
+        placeholder="for example: toilet blocked, water on the floor"></textarea>
+    </div>
+    <div>
+      <label for="community">Where do you live?</label>
+      <select id="community" name="community" required>
+        {% for group, names in community_groups %}
+        <optgroup label="{{ group }}">{% for c in names %}<option value="{{ c }}">{{ c }}</option>{% endfor %}</optgroup>
+        {% endfor %}
+      </select>
+    </div>
+    <fieldset>
+      <legend>Who lives in the house? <span class="hint">Optional. Leave blank if you prefer.</span></legend>
+      <div class="checks">
+        <label><input type="checkbox" name="vulnerability" value="children"> Children</label>
+        <label><input type="checkbox" name="vulnerability" value="elderly"> Older person</label>
+        <label><input type="checkbox" name="vulnerability" value="disability"> Person with disability</label>
+        <label><input type="checkbox" name="vulnerability" value="medical_equipment"> Medical equipment</label>
+      </div>
+    </fieldset>
+    <button type="submit">Send report</button>
+  </form>
+
+  <div id="outcome" aria-live="polite"></div>
+  </div>
+</div>
+{% endblock %}

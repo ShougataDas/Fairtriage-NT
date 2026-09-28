@@ -1,0 +1,129 @@
+# FairTriage NT — policy configuration
+#
+# Every number that influences a ranking lives here, and every one of them is
+# rendered on screen. An invisible weight is the same problem as an invisible
+# model. Change a value -> bump `version` -> old recommendations remain
+# explainable because each assessment stores the version that produced it.
+
+version: "policy-2026.09-v7"
+
+# ---------------------------------------------------------------------------
+# Tier ladder. Lexicographic and non-compensatory: nothing in a lower tier can
+# climb into a higher one, whatever else is true.
+# ---------------------------------------------------------------------------
+tiers:
+  order: [Immediate, Urgent, Routine]
+
+# ---------------------------------------------------------------------------
+# Need score, applied WITHIN a tier only. There is no distance term, and no
+# variable exists for kilometres to be placed in.
+# ---------------------------------------------------------------------------
+# v4: inside the Immediate tier every job is "uninhabitable", so habitability
+# alone could not separate a flooded house from a lock that will not catch.
+# Two observable facts now do that work. Weights must sum to 1.
+need_weights:
+  habitability: 0.35
+  extent: 0.15          # whole house affected, or one fixture / one room
+  containment: 0.20     # can it still hurt someone, or has the tenant made it safe
+  vulnerability: 0.30
+
+# Life at risk right now (fire, explosion, someone hurt) tops the Immediate
+# tier outright. The tenant is told to call 000 before anything else.
+emergency_need: 100
+
+extent_score:
+  whole_dwelling: 1.00
+  one_fixture: 0.40
+
+# Isolation is only credited when the tenant SAYS they have done it. Unknown
+# is treated as not contained, because assuming safety is the dangerous error.
+containment_score:
+  not_contained: 1.00
+  tenant_made_safe: 0.30
+
+habitability_score:
+  uninhabitable: 1.00
+  severely_impaired: 0.70
+  impaired: 0.40
+  cosmetic: 0.10
+  none: 0.00
+
+# Self-reported, therefore gameable. Accepted deliberately: a modifier within
+# a tier, never a tier jump, and the coordinator sees the claim itself.
+vulnerability_score:
+  medical_equipment: 1.00
+  disability: 0.80
+  elderly: 0.75
+  children: 0.65
+
+# ---------------------------------------------------------------------------
+# Service targets, in business days.
+# UNVERIFIED: the remote figures appear in a Government Employee Housing form,
+# a different tenancy stream from remote public housing. Confirm against the
+# Tenancy Management Support Services Handbook before relying on them.
+# ---------------------------------------------------------------------------
+service_targets_days:
+  Immediate: {urban: 0.17, remote: 0.17}     # 4 hours
+  Urgent:    {urban: 2,    remote: 5}
+  Routine:   {urban: 10,   remote: 25}
+service_targets_verified: false
+
+# ---------------------------------------------------------------------------
+# Wait estimate
+# ---------------------------------------------------------------------------
+wait:
+  # v7: time from report to a crew being booked, before any queue. Routine work
+  # is programmed into the week, not dispatched on the day; without this a
+  # quiet queue showed routine jobs as "within a day". PLACEHOLDER values:
+  # replace with the department's real booking times.
+  lead_days: {Immediate: 0.1, Urgent: 1.0, Routine: 5.0}
+  mean_job_days: 0.5
+  road_penalty_days: {open: 0, restricted: 2, closed: 7}
+  scheduled_trip_discount_days: 3
+  range_spread: 0.25            # show +/- 25% as a range, never a date
+
+# ---------------------------------------------------------------------------
+# Scheduling loop
+# ---------------------------------------------------------------------------
+trips:
+  # a community generates its own trip when its oldest open job has waited
+  # this multiple of its service target. Printed on screen with its value.
+  community_threshold_multiple: 3.0
+  capacity_hours_per_day: 7.5   # on-site work per trip day
+  trip_days: 2                  # so a trip holds 15 hours of on-site work
+  workday_hours: 10             # crew hours per day, driving + work: turns hours into days
+  match_trade: true             # a stop must need the trade the trip carries
+  stops_include_urban: false    # Darwin suburbs have their own daily crews
+
+  # v6: routes. The planner compares the fastest route with slower routes that
+  # pass more open jobs, and picks one. Every rule below is shown on screen.
+  routing:
+    restricted_speed_factor: 0.6  # a restricted road is driven at 60% speed
+    max_alternatives: 4
+    max_route_ratio: 1.8          # slower than 1.8x the fastest is a detour, not a route
+    paths_examined: 60
+    # these tiers go by the fastest route with no stops before them
+    direct_tiers: [Immediate]
+    # stops may use at most 75% of the destination job's remaining time to
+    # target; 25% is kept in reserve for the road being worse than expected
+    anchor_slack_reserve: 0.25
+    # a job already past its target may be delayed by at most this much
+    overdue_delay_cap_hours: 2.0
+    # route choice: value of the jobs a route serves, minus its extra hours.
+    # a job's value = tier value x (1 + min(days waited / target, cap))
+    stop_value: {Immediate: 3, Urgent: 2, Routine: 1}
+    wait_bonus_cap: 2.0
+    # value given up per extra hour of travel. At 1.0, one Routine job is worth
+    # a detour of 1-3 h depending on how long it has waited: about what a
+    # separate trip to it would cost, so a detour never costs more than that.
+    extra_hour_cost: 1.0
+    charter_cost: 3.0             # a charter flight costs money: counted as this much value
+
+# ---------------------------------------------------------------------------
+# Alerts
+# ---------------------------------------------------------------------------
+alerts:
+  repeat_deferral_at: 2
+
+extraction:
+  max_clarification_rounds: 1

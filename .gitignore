@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.env
+data/*.db
+data/*.db-*
+.pytest_cache/
+.mongodb/
+# Python
+.venv/
+venv/
+*.egg-info/
+# Node / Next.js (frontend/.gitignore covers the rest)
+node_modules/
+.next/
+# local tooling
+.vercel/
+*.log

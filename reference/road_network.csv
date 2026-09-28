@@ -1,0 +1,76 @@
+a,b,km,speed_kmh,extra_hours,mode,road,note
+Berry Springs,Humpty Doo,24.5,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Humpty Doo,Girraween,6.0,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Girraween,Coolalinga,6.4,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Coolalinga,Virginia,3.0,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Coolalinga,Howard Springs,3.8,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Virginia,Palmerston (Zuccoli),3.8,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Palmerston (Zuccoli),Palmerston (Bakewell),1.7,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Palmerston (Bakewell),Palmerston (Woodroffe),1.1,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Palmerston (Woodroffe),Palmerston (Gunn),1.3,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Palmerston (Woodroffe),Palmerston (Gray),1.4,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Palmerston (Gray),Palmerston (Driver),1.5,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Palmerston (Driver),Palmerston,1.5,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Palmerston (Gunn),Palmerston (Johnston),1.6,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Palmerston,Palmerston (Farrar),1.8,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Palmerston,Palmerston (Durack),1.9,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Palmerston (Gray),Palmerston (Moulden),1.9,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Palmerston (Moulden),Palmerston (Bellamack),2.0,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Palmerston (Bellamack),Palmerston (Rosebery),1.8,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Palmerston (Durack),Darwin (Knuckey Lagoon),6.5,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Knuckey Lagoon),Darwin (Berrimah),3.5,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Berrimah),Darwin (Winnellie),5.3,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Winnellie),Darwin (Marrara),4.0,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Marrara),Darwin (Anula),0.9,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Anula),Darwin (Wulagi),1.4,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Wulagi),Darwin (Wagaman),1.6,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Wagaman),Darwin (Casuarina),1.2,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Casuarina),Darwin (Wanguri),0.8,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Casuarina),Darwin (Nakara),1.0,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Nakara),Darwin (Brinkin),0.8,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Wagaman),Darwin (Moil),1.2,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Moil),Darwin (Jingili),1.0,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Jingili),Darwin (Alawa),1.3,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Jingili),Darwin (Millner),1.6,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Millner),Darwin (Rapid Creek),1.5,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Rapid Creek),Darwin (Nightcliff),1.3,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Wanguri),Darwin (Leanyer),1.6,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Leanyer),Darwin (Muirhead),1.2,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Muirhead),Darwin (Lyons),1.4,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Lyons),Darwin (Tiwi),1.3,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Anula),Darwin (Malak),1.7,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Malak),Darwin (Karama),1.7,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Millner),Darwin (Coconut Grove),1.7,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Coconut Grove),Darwin (Ludmilla),2.9,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Ludmilla),Darwin (Parap),2.2,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Parap),Darwin (Fannie Bay),1.3,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Parap),Darwin (Woolner),1.7,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Woolner),Darwin (Bayview),1.0,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Woolner),Darwin (Stuart Park),1.1,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Stuart Park),Darwin (The Gardens),1.0,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (The Gardens),Darwin (Larrakeyah),1.1,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Larrakeyah),Darwin (City),2.2,50,0,road,local roads,"suburban link, straight-line x 1.3 - ESTIMATE"
+Darwin (Ludmilla),Darwin (Winnellie),5,60,0,road,Bagot Rd,approximate - check against NT roads KMZ
+Darwin (Winnellie),Darwin (Berrimah),5,80,0,road,Stuart Hwy,approximate - check against NT roads KMZ
+Darwin (Berrimah),Palmerston,9,90,0,road,Stuart Hwy,approximate - check against NT roads KMZ
+Palmerston,Coolalinga,9,90,0,road,Stuart Hwy,approximate - check against NT roads KMZ
+Coolalinga,Berry Springs,22,100,0,road,Stuart Hwy,approximate - check against NT roads KMZ
+Coolalinga,Humpty Doo,10,90,0,road,Arnhem Hwy,approximate - check against NT roads KMZ
+Berry Springs,Adelaide River,62,110,0,road,Stuart Hwy,approximate - check against NT roads KMZ
+Berry Springs,Batchelor,42,100,0,road,Stuart Hwy / Batchelor Rd,approximate - check against NT roads KMZ
+Batchelor,Adelaide River,38,90,0,road,Batchelor Rd / Stuart Hwy,approximate - check against NT roads KMZ
+Adelaide River,Pine Creek,112,110,0,road,Stuart Hwy,approximate - check against NT roads KMZ
+Pine Creek,Katherine,90,110,0,road,Stuart Hwy,approximate - check against NT roads KMZ
+Adelaide River,Peppimenarti,230,65,0,road,Daly River Rd / Port Keats Rd (part unsealed),approximate - check against NT roads KMZ
+Batchelor,Peppimenarti,245,60,0,road,Litchfield Park Rd / Daly River Rd (unsealed),approximate - check against NT roads KMZ
+Peppimenarti,Wadeye,95,60,0,road,Port Keats Rd (unsealed),approximate - check against NT roads KMZ
+Berry Springs,Belyuen,80,80,0,road,Cox Peninsula Rd,approximate - check against NT roads KMZ
+Humpty Doo,Gunbalanya,290,80,0,road,Arnhem Hwy / Oenpelli Rd,approximate - check against NT roads KMZ
+Pine Creek,Gunbalanya,270,80,0,road,Kakadu Hwy / Oenpelli Rd,approximate - check against NT roads KMZ
+Gunbalanya,Maningrida,300,50,0,road,Maningrida Rd (dry-season track),approximate - check against NT roads KMZ
+Katherine,Numbulwar,590,70,0,road,Stuart Hwy / Roper Hwy (part unsealed),approximate - check against NT roads KMZ
+Darwin (Ludmilla),Wurrumiyanga,77.0,250,1.0,air,charter flight,straight line + 1 h handling - ESTIMATE
+Darwin (Ludmilla),Galiwinku,514.5,250,1.0,air,charter flight,straight line + 1 h handling - ESTIMATE
+Darwin (Ludmilla),Maningrida,369.2,250,1.0,air,charter flight,straight line + 1 h handling - ESTIMATE
+Darwin (Ludmilla),Numbulwar,567.5,250,1.0,air,charter flight,straight line + 1 h handling - ESTIMATE
+Darwin (Ludmilla),Wadeye,248.6,250,1.0,air,charter flight,straight line + 1 h handling - ESTIMATE

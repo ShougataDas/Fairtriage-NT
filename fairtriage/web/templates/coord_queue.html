@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Queue | FairTriage NT{% endblock %}
+{% block main %}
+<div class="wide">
+  <h1>Repair queue</h1>
+  <p class="lede">Ranked by need. Reachability sits beside it and is never added in.</p>
+
+  <form class="toolbar" method="get" action="/coordinator">
+    <div><label for="order">Order by</label>
+      <select id="order" name="order" onchange="this.form.submit()">
+        <option value="need" {% if order=='need' %}selected{% endif %}>Need (how FairTriage ranks)</option>
+        <option value="cost" {% if order=='cost' %}selected{% endif %}>Cheapest to reach first</option>
+      </select></div>
+    <div><label for="tier">Tier</label>
+      <select id="tier" name="tier" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for t in ['Immediate','Urgent','Routine'] %}<option {% if tier==t %}selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select></div>
+    <div><label for="community">Community</label>
+      <select id="community" name="community" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for c in communities %}<option {% if community==c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+      </select></div>
+  </form>
+
+  {% if order == 'cost' %}
+  <div class="notice">
+    <strong>This is what an efficiency-first queue looks like.</strong>
+    It is not how FairTriage ranks. Jobs are ordered by travel from the crew's
+    own regional depot, nearest first. Katherine has its own crews, so Katherine
+    jobs count as local. {{ moved_down }} remote job{{ '' if moved_down == 1 else 's' }} drop down the list purely
+    because of distance. Rows shaded red moved down and green moved up, compared with the need order.
+  </div>
+  {% endif %}
+
+  {% if contacts %}
+  <section class="panel">
+    <h2>Needs a phone call ({{ contacts|length }})</h2>
+    <p class="muted">Still unclear after asking once, or a withdrawal that may mean the tenant gave up. These never leave the system without a person speaking to the tenant.</p>
+    <table class="arith">
+      <tr><th>Reference</th><th>Community</th><th>Why</th><th>They wrote</th><th>Their answer</th></tr>
+      {% for c in contacts %}<tr><td><a href="/coordinator/{{ c.request_id }}">{{ c.request_id }}</a></td><td>{{ c.community }}</td>
+      <td>{{ 'still unclear' if c.status == 'needs_phone_call' else 'said not to come' }}</td>
+      <td class="ev">“{{ c.text[:60] }}”</td><td class="ev">{% if c.answer %}“{{ c.answer[:60] }}”{% endif %}</td></tr>{% endfor %}
+    </table>
+  </section>
+  {% endif %}
+
+  <table class="queue">
+    <thead>
+      <tr class="groups">
+        <th colspan="5">Need</th>
+        <th colspan="{{ 4 if order=='cost' else 3 }}" class="split">Reachability</th>
+        <th colspan="2" class="hide-sm"></th>
+      </tr>
+      <tr>
+        <th>#</th><th>Tier</th><th class="num">Need</th><th>Why</th><th>Community</th>
+        <th class="split">Access</th>{% if order=='cost' %}<th class="num">Km from depot</th>{% endif %}<th class="num">Wait est.</th><th class="num">Darwin eq.</th>
+        <th class="hide-sm">Open</th><th class="hide-sm">Flags</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+      <tr class="{% if order=='cost' and r.shift < 0 %}moved-down{% elif order=='cost' and r.shift > 0 %}moved-up{% endif %}">
+        <td class="num">{{ r.display_pos }}</td>
+        <td><a class="tier {{ r.tier }}" href="/coordinator/{{ r.request_id }}">{{ r.tier }}</a></td>
+        <td class="num">{{ '%.0f'|format(r.need) }}</td>
+        <td class="ev">“{{ r.evidence[:70] }}{% if r.evidence|length > 70 %}…{% endif %}”</td>
+        <td>{{ r.community }}</td>
+        <td class="split">{{ r.reachability.access }}{% if r.reachability.road_status and r.reachability.road_status != 'open' %}, road {{ r.reachability.road_status }}{% endif %}</td>{% if order=='cost' %}<td class="num">{{ '%.0f'|format(r.reachability.road_km_est) }}</td>{% endif %}
+        <td class="num">{% if r.wait_low is not none %}{% set lo = [r.wait_low|round|int, 1]|max %}{% set hi = r.wait_high|round|int %}{% if r.wait_high < 1 %}&lt;1 d{% elif lo >= hi %}{{ hi }} d{% else %}{{ lo }}–{{ hi }} d{% endif %}{% endif %}</td>
+        <td class="num">{% if r.wait_darwin is not none %}{{ '%.0f'|format(r.wait_darwin) if r.wait_darwin >= 1 else '<1' }} d{% endif %}</td>
+        <td class="hide-sm num">{% if r.days_open < 1 %}{{ (r.days_open * 24)|round|int }} h{% else %}{{ '%.0f'|format(r.days_open) }} d{% endif %}{% if r.past_target %}<br><span class="flag alert">past target ({{ r.target_label }})</span>{% endif %}</td>
+        <td class="hide-sm">{% for f in r.flags %}<span class="flag {% if f.code in ['repeat_deferral','normalisation_changed_outcome','extraction_fallback'] %}alert{% endif %}">{{ f.code.replace('_',' ') }}</span>{% endfor %}{% if r.advanced_by %}<span class="flag">batched</span>{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="10">Nothing open. Seed the demo with <code>python scripts/seed_demo.py</code>.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% set rs = reader_status() %}
+  <p class="{{ 'muted' if rs.ok else 'error' }}" style="margin-top:0.8rem">Reading messages with: {{ rs.label }}. Rules version {{ rules_version }}.</p>
+  <p class="muted">Wait estimates use placeholder crew numbers per region. Distances are estimates. Policy {{ policy_version }}.</p>
+</div>
+{% endblock %}

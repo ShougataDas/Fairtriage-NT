@@ -1,0 +1,25 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+jinja2>=3.1
+python-multipart>=0.0.9
+pydantic>=2.7
+pydantic-settings>=2.3
+pyyaml>=6.0
+structlog>=24.1
+langgraph>=1.0
+langgraph-checkpoint-mongodb>=0.3
+# database
+pymongo>=4.8
+openpyxl>=3.1            # Excel export
+networkx>=3.0            # trip planner: routes over the road network
+# evaluation and seeding
+pandas>=2.2
+scikit-learn>=1.5
+# tests
+pytest>=8.0
+mongomock>=4.1           # in-memory MongoDB for the tests
+httpx>=0.27
+# FAIRTRIAGE_EXTRACTOR=openai or gemini (Gemini uses the OpenAI-compatible endpoint)
+openai>=1.40
+# FAIRTRIAGE_EXTRACTOR=anthropic
+anthropic>=0.40

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ request_id }} | FairTriage NT{% endblock %}
+{% block main %}
+<div class="narrow">
+  <h1>Your repair</h1>
+  {% if trip_update %}<p class="notice" role="status">{{ trip_update }}</p>{% endif %}
+  {% if trip_update %}<p class="notice" role="status">{{ trip_update }}</p>{% endif %}
+  {% if question %}{% include "_question.html" %}{% else %}{% include "_docket.html" %}{% endif %}
+</div>
+{% endblock %}

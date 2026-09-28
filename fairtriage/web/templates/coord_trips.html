@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Trips | FairTriage NT{% endblock %}
+{% macro eta(h, wd) -%}
+  {%- if h < wd %}{{ '%.1f'|format(h) }} h{% else %}{{ '%.1f'|format(h / wd) }} crew days{% endif -%}
+{%- endmacro %}
+{% block main %}
+<div class="wide">
+  <h1>Trip planner</h1>
+  <p class="lede">Recommended trips, worked out again every time this page loads, from the open queue, each job's priority and where the crews are now. Nothing is booked until you confirm.</p>
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+  <section class="panel">
+    <h2 style="margin-top:0">Where the crews are</h2>
+    <p class="muted">Trips start from here. Change it when a crew moves and the routes and arrival times below are recalculated.</p>
+    <div class="toolbar">
+    {% for region, loc in teams.items() %}
+      <form method="post" action="/coordinator/team" class="toolbar" style="margin:0">
+        <input type="hidden" name="trade_region" value="{{ region }}">
+        <div><label for="team-{{ region }}">{{ region }} crews</label>
+          <select id="team-{{ region }}" name="location">
+          {% for g, names in community_groups %}<optgroup label="{{ g }}">
+            {% for n in names %}<option {% if n == loc %}selected{% endif %}>{{ n }}</option>{% endfor %}
+          </optgroup>{% endfor %}
+          </select></div>
+        <button type="submit" class="secondary">Move</button>
+      </form>
+    {% endfor %}
+    </div>
+  </section>
+
+  <h2>Recommended now</h2>
+  {% if preview %}
+  <form method="post" action="/coordinator/trips/plan"><button type="submit">Confirm these {{ preview|length }} trip{{ 's' if preview|length != 1 }}</button></form>
+  {% endif %}
+
+  {% for p in preview %}
+  <section class="panel" style="margin-top:1.2rem">
+    <h2 style="margin-top:0">{{ p.headline }}</h2>
+    <p><strong>Reason:</strong> {{ p.explanation }}</p>
+    {% if p.target_missed %}<p class="error">This trip cannot reach {{ p.anchor }} inside its target.</p>{% endif %}
+    <p class="muted">
+      {% if p.trigger == 'community_threshold' %}Started because the community has waited too long ({{ p.trigger_detail }}).{% else %}Started by an urgent job, <a href="/coordinator/{{ p.anchor }}">{{ p.anchor }}</a>.{% endif %}
+      {{ p.trade }}, crew {{ p.crew }} from {{ p.start }}{% if p.start_offset_h > 0 %}, free to leave in {{ eta(p.start_offset_h, p.workday_hours) }}{% endif %}.
+      {% if p.route %}{{ '%.0f'|format(p.route.km) }} km, {{ '%.1f'|format(p.route.hours) }} h travel{% if p.route.roads %}: {{ p.route.roads|join('; ') }}{% endif %}.{% endif %}
+    </p>
+
+    {% if p.stops %}
+    <table class="arith">
+      <tr><th>Stop</th><th>Job</th><th>Community</th><th>Tier</th><th>Why it is on this trip</th>
+          <th class="num">Expected arrival</th><th class="num">Estimate before</th><th>Inside target?</th></tr>
+      {% for s in p.stops %}
+      <tr><td>{{ s.order }}</td><td><a href="/coordinator/{{ s.request_id }}">{{ s.request_id }}</a></td>
+          <td>{{ s.community }}</td><td class="tier {{ s.tier }}">{{ s.tier }}</td><td>{{ s.reason }}</td>
+          <td class="num">{{ eta(s.eta_hours, p.workday_hours) }}</td>
+          <td class="num">{% if s.prev_wait_days is not none %}{{ '%.1f'|format(s.prev_wait_days) }} days{% else %}—{% endif %}</td>
+          <td>{% if s.on_time %}yes{% elif s.slack_hours <= 0 %}already past target{% else %}<strong>no</strong>{% endif %}</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if p.options|length > 1 %}
+    <table class="arith" style="margin-top:1rem">
+      <tr><th>Routes compared</th><th class="num">Travel</th><th class="num">Extra</th><th class="num">Jobs it passes</th><th class="num">Served</th><th class="num">Score</th><th>Outcome</th></tr>
+      {% for o in p.options %}
+      <tr><td>{{ o.name }}</td><td class="num">{{ '%.1f'|format(o.hours) }} h</td><td class="num">+{{ '%.1f'|format(o.extra_hours) }} h</td>
+          <td class="num">{{ o.passes }}</td><td class="num">{{ o.serves if o.chosen or o.feasible else '—' }}</td><td class="num">{{ '%.2f'|format(o.score) }}</td>
+          <td>{% if o.chosen %}<strong>chosen</strong>{% elif not o.feasible %}{{ o.note }}{% else %}lower score{% endif %}</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if p.left_behind %}
+    <table class="arith" style="margin-top:1rem">
+      <tr><th>Not on this trip</th><th>Community</th><th>Tier</th><th>Why not</th></tr>
+      {% for j in p.left_behind %}<tr><td><a href="/coordinator/{{ j.request_id }}">{{ j.request_id }}</a></td><td>{{ j.community }}</td><td class="tier {{ j.tier }}">{{ j.tier }}</td><td>{{ j.reason }}</td></tr>{% endfor %}
+    </table>
+    {% endif %}
+  </section>
+  {% else %}
+  <p class="muted">No trip is needed right now: no urgent remote job, and no community past {{ multiple }} times its target.</p>
+  {% endfor %}
+
+  <section class="panel" style="margin-top:1.2rem">
+    <h2 style="margin-top:0">The rules, with their values</h2>
+    <ul>
+      <li>A trip starts for an Immediate or Urgent remote job, or when a community's oldest job has waited {{ multiple }} times its target.</li>
+      <li>{{ r.direct_tiers|join(', ') }} jobs go by the fastest route with no stops before them.</li>
+      <li>Otherwise, jobs on a route are added in need order, never quickest first, while the destination job still arrives within {{ '%.0f'|format((1 - r.anchor_slack_reserve) * 100) }}% of its remaining time to target (a job already past target: at most {{ r.overdue_delay_cap_hours }} h later than the fastest arrival), and no job on the trip is pushed past its target.</li>
+      <li>Route score = value of the jobs served on the way − {{ r.extra_hour_cost }} per extra hour of travel{% if r.charter_cost %} − {{ r.charter_cost }} for a charter flight{% endif %}. A job's value is {{ r.stop_value.Immediate }}, {{ r.stop_value.Urgent }} or {{ r.stop_value.Routine }} by tier, raised by up to {{ '%.0f'|format(r.wait_bonus_cap * 100) }}% for time already waited.</li>
+      <li>A trip holds {{ '%.0f'|format(t.capacity_hours_per_day * t.trip_days) }} hours of on-site work. Arrival times count {{ t.workday_hours }} crew hours a day. Restricted roads are driven at {{ '%.0f'|format(r.restricted_speed_factor * 100) }}% speed; closed roads are not used.</li>
+      <li>If a long trip would leave a later urgent job waiting past its target for the same crew, the long trip is shortened.</li>
+    </ul>
+    <p class="muted">Road distances and speeds are approximate. None of this changes a job's tier, need score or rank.</p>
+  </section>
+
+  <h2>Confirmed trips</h2>
+  {% for t in trips %}
+  <section class="panel" id="{{ t.id }}" style="margin-top:1.2rem">
+    <h2 style="margin-top:0">{{ t.headline or (t.community ~ ', ' ~ t.trade) }}</h2>
+    {% if t.explanation %}<p><strong>Reason:</strong> {{ t.explanation }}</p>{% endif %}
+    <p class="muted">{{ t.id }}, {{ t.trade }}, confirmed {{ t.created_at[:16].replace('T',' ') }} UTC.</p>
+    <table class="arith">
+      <tr><th>On this trip</th><th>Community</th><th>Tier</th><th>Why it is here</th><th class="num">Expected arrival</th></tr>
+      {% for j in t.jobs %}<tr><td><a href="/coordinator/{{ j.request_id }}">{{ j.request_id }}</a></td><td>{{ j.community }}</td><td class="tier {{ j.tier }}">{{ j.tier }}</td><td>{{ j.reason }}</td>
+        <td class="num">{% if j.eta_hours is defined %}{{ eta(j.eta_hours, 10) }} after confirming{% else %}—{% endif %}</td></tr>{% endfor %}
+    </table>
+    {% if t.left_behind %}
+    <table class="arith" style="margin-top:1rem">
+      <tr><th>Not on this trip</th><th>Community</th><th>Tier</th><th>Why not</th></tr>
+      {% for j in t.left_behind %}<tr><td><a href="/coordinator/{{ j.request_id }}">{{ j.request_id }}</a></td><td>{{ j.community }}</td><td class="tier {{ j.tier }}">{{ j.tier }}</td><td>{{ j.reason }}</td></tr>{% endfor %}
+    </table>
+    {% endif %}
+  </section>
+  {% else %}
+  <p class="muted">No trips confirmed yet.</p>
+  {% endfor %}
+</div>
+{% endblock %}
