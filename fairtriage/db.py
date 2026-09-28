@@ -125,8 +125,14 @@ def ping() -> bool:
 
 
 def drop_all() -> None:
-    """Delete every FairTriage collection. Used by the demo seed."""
-    client().drop_database(settings().mongo_db)
+    """Delete every FairTriage collection. Used by the demo seed.
+
+    Drops collections one by one rather than the database: a MongoDB Atlas
+    user with read/write rights may drop collections but not databases."""
+    d = client()[settings().mongo_db]
+    for name in d.list_collection_names():
+        if not name.startswith("system."):
+            d.drop_collection(name)
     reset_engine()
 
 
