@@ -170,15 +170,28 @@ ESSENTIAL_RULES = [
      r"|\b(water )?tank\b.{0,20}\b(empty|dry|run out|ran out)\b"
      r"|\bbore( pump)?\b.{0,30}\b(broken|broke|stopped|not working|dead|failed|no good)\b", "essential", True),
     (r"\bwhole house is affected\b", "essential", True),
-    (r"\bno power\b|\bpower\b.{0,20}\b(out|off|gone)\b.{0,20}\b(whole|house|all)\b"
-     r"|\bwhole house\b.{0,20}\bpower\b", "electrical", True),
-    (r"\bno hot water\b|\bhot water\b.{0,20}\b(not working|no working|not work|no work|broken|broke|stopped|cold|dead|failed|gone)\b", "essential", True),
+    # A power cut, however it is said. "power" never means a power POINT,
+    # board, cord or bill here: one dead socket is Routine.
+    (r"\bno (power|electricity|electrics|electric|lights at all)\b"
+     r"|\bpower\b(?!\s*(points?|sockets?|outlets?|boards?|cords?|leads?|plugs?|bills?|cards?))"
+     r".{0,25}\b(out|off|cut|gone|down|dead|not working|not back|failed|stopped|going off|keeps going off)\b"
+     r"|\belectricity\b.{0,25}\b(out|off|cut|gone|down|dead|not working|stopped|failed)\b"
+     r"|\b(black ?out|power outage|outage|power cut|power failure)\b"
+     r"|\b(house|home|unit|place|flat)\b.{0,15}\b(is |has gone |went |gone |all )?dark\b"
+     r"|\bwhole house\b.{0,20}\bpower\b"
+     r"|\b(safety switch|main switch|breaker|circuit breaker|rcd|trip switch)\b.{0,30}"
+     r"\b(trip\w*|keeps? (going|turning) off|won'?t (reset|stay on)|will not (reset|stay on))\b"
+     r"|\beverything (electrical|electric)\b.{0,20}\b(stopped|off|not working|dead)\b", "electrical", True),
+    (r"\bno hot water\b|\bhot water\b.{0,20}\b(not working|no working|not work|no work|broken|broke|stopped|cold|dead|failed|gone)\b"
+     r"|\bonly cold water\b|\bcold (water|showers?) only\b|\bshowers? (only )?(runs?|is|are) (only )?cold\b"
+     r"|\b(hot water (system|unit|service|tank)|water heater|hws)\b.{0,25}"
+     r"\b(not heating|not hot|broken|broke|not working|dead|stopped|failed|gone cold)\b", "essential", True),
     # a working smoke alarm is a legal minimum: without one a fire goes unnoticed
     (r"\bsmoke (alarms?|detectors?)\b.{0,40}\b(not working|doesn'?t work|does not work|no work\w*|broken|broke|beep\w*|chirp\w*|"
      r"keeps? going off|won'?t stop|missing|fell|dead|removed|no power|faulty)\b"
      r"|\bno smoke (alarm|detector)\b", "electrical", True),
     (r"\b(can ?not|cant|can't|unable to)\b.{0,10}\bcook\b|\bnone of the (stove|burners)\b"
-     r"|\bwhole stove\b", "essential", True),
+     r"|\bwhole stove\b|\bnothing to cook (with|on)\b", "essential", True),
     # "only toilet", in either word order
     (r"\b(only|one|sole|single)\s+toilet\b|\btoilet\b.{0,30}\b(only one|one only|just one)\b"
      r"|\b(only one|one only|just one)\b.{0,20}\btoilet\b"
@@ -203,7 +216,7 @@ FAULT_RULES = [
      r"|\bsinks?\b|\bdrains?\b|\bbasin\b|\btrough\b|\bshower\b", "water"),
     # a ceiling is only a water fault when something wet is happening to it
     (r"\broof\b|\bceiling\b.{0,30}\b(wet|leak\w*|drip\w*|water|stain\w*|mould|mold)\b", "water"),
-    (r"\bpower|\bsockets?\b|\bplugs?\b|\blights?\b|\bswitch\w*|\belectric", "electrical"),
+    (r"\bpower|\bsockets?\b|\boutlets?\b|\bplugs?\b|\blights?\b|\bswitch\w*|\belectric", "electrical"),
     # provided appliances
     (r"\b(fridge|freezer|washing machine|dryer|dishwasher|microwave|range ?hood|exhaust fan|smoke alarm)\b", "electrical"),
     (r"\blocks?\b|\bdoors?\b|\bwindows?\b|\bgate\b", "security"),
@@ -217,7 +230,8 @@ FAILURE = (r"\b(broke\w*|won'?t|can'?t|cannot|stuck|leak\w*|drip\w*|block\w*|cra
            r"flood\w*|hot|spark\w*)\b")
 FAIL_PHRASES = (r"\b(not|isn'?t|aren'?t) (working|turning|closing|opening|flushing|draining|"
                 r"heating|cooling|locking|running)\b|\b(does not|doesn'?t|won'?t|will not) "
-                r"(work|turn|close|open|flush|drain|heat|cool|lock|start)\b|\bstopped working\b")
+                r"(work|turn|close|open|flush|drain|heat|cool|lock|start)\b|\bstopped working\b"
+                r"|\b(does|do|did) nothing\b")
 WORKING = (r"\b(fine|ok|okay|good|works|working|locks ok|can lock|normally|properly|"
            r"as normal|as usual|completely dry|all dry|no problems?)\b"
            r"|\bold\b.{0,15}\b(mark|stain|patch)\b|\b(mark|stain|patch)\b.{0,20}\b(old|dry)\b")
@@ -293,6 +307,32 @@ INJURY = (
     r"|\b(is|are|was|keeps?)\s+(bleeding|unconscious|not moving|knocked out)\b"
     r"|\bhit (his|her|their|my) head\b|\bbroke (his|her|their|my) (leg|arm|back|neck|hip|wrist|ankle)\b"
 )
+
+# Tenants rarely say "power cut": they list what stopped. Lights failing
+# together with something else, or "nothing / none / all / everything" being
+# off, is the house losing power. One light, or one socket, is not.
+ELEC_ITEMS = (r"\b(lights?|fans?|fridges?|freezers?|tv|television|aircon|air ?con\w*|"
+              r"power ?points?|sockets?|kettles?|microwaves?|washing machine|oven|stove|cooktop)\b")
+OUTAGE = (r"\b(nothing|none|all|everything)\b.{0,40}\b(running|working|works|work|on|off|out|stopped|dead)\b"
+          r"|\b(not|no|nothing) (work\w*|running|turn\w* on|comes? on|coming on)\b"
+          r"|\b(stopped|dead|went out|gone off|won'?t (turn|come) on|cant turn on|can'?t turn on|all off|is off|are off)\b")
+QUANTIFIER = r"\b(nothing|none of|all|everything)\b"
+
+
+def _power_lost(low: str) -> bool:
+    # "nothing is burning or sparking" reassures; it does not say nothing works
+    low = re.sub(r"\bnothing (is |was )?(burning|sparking|smoking|leaking|hot|wrong|broken)\b", " ", low)
+    # "one outlet does nothing but the other outlets work": one fault, power on
+    if re.search(r"\b(the other|other|rest of the|everything else)\b.{0,25}\b(works?|working|fine|ok|okay)\b", low):
+        return False
+    items = set()
+    for m in re.finditer(ELEC_ITEMS, low):
+        w = m.group(1).replace(" ", "")
+        items.add(w[:-1] if w.endswith("s") and not w.endswith("ss") else w)
+    if len(items) < 2 or not re.search(OUTAGE, low):
+        return False
+    return len(items) >= 3 or "light" in items or bool(re.search(QUANTIFIER, low))
+
 
 # a smoke alarm is not smoke: masked before the danger rules read a clause
 SAFETY_DEVICE = r"\bsmoke (alarms?|detectors?)\b"
@@ -404,7 +444,10 @@ class KeywordExtractor:
                 ms = list(re.finditer(pat, c))
                 if ms and ((neg_is_fault and not _resolved(c))
                            or any(not _negated(c, m) for m in ms)):
-                    essential, ess_domain, ess_clause = True, ess_domain or dom, ess_clause or cl
+                    first = not essential
+                    essential = True
+                    if first or (dom == "electrical" and ess_domain != "electrical"):
+                        ess_domain, ess_clause = dom, cl
             if fault_domain is None:
                 # "not sparking, not hot and works fine" -> working.
                 # "lights not working" -> a failure. So: positive state is read on
@@ -432,6 +475,11 @@ class KeywordExtractor:
                     if live and not _resolved(c):
                         fault_domain, fault_clause, fault_failing = dom, cl, True
                         break
+
+        power_out = False
+        if not (essential and ess_domain == "electrical") and _power_lost(low):
+            essential, power_out = True, True
+            ess_domain, ess_clause = "electrical", t
 
         has_fault = danger or essential or fault_domain is not None
 
@@ -507,7 +555,7 @@ class KeywordExtractor:
             person_hurt=bool(injury_clause),
             essential_service_lost=essential,
             habitability=hab,
-            whole_dwelling=bool(re.search(WHOLE_DWELLING, low)) or (danger and domain == "gas"),
+            whole_dwelling=bool(re.search(WHOLE_DWELLING, low)) or (danger and domain == "gas") or power_out,
             tenant_isolated=bool(re.search(ISOLATED, low)),
             evidence_phrase=evidence[:200],
             confidence=Confidence.LOW if vague else

@@ -8,9 +8,9 @@ Rows scored: 1810 (errors 0). Label sources: {'derived': 1800, 'probe_designed':
 
 | Field | Macro-F1 |
 |---|---|
-| actionability | 0.824 |
+| actionability | 0.834 |
 | endangers_person | 0.963 |
-| essential_service_lost | 0.520 |
+| essential_service_lost | 0.522 |
 
 ## Safety
 
@@ -27,13 +27,13 @@ Danger precision 0.998, recall 0.900.
 | buried_hazard | 2 | 100.0% | 100.0% |
 | false_withdrawal | 2 | 100.0% | 100.0% |
 | insufficient_detail | 95 | 57.9% | 100.0% |
-| multi_issue | 348 | 98.9% | 97.1% |
+| multi_issue | 348 | 99.1% | 97.1% |
 | negation | 129 | 100.0% | 100.0% |
 | normal_state | 141 | 77.3% | 100.0% |
 | possible_hazard_unclear | 85 | 100.0% | 100.0% |
 | register_pair | 4 | 100.0% | 100.0% |
-| standard | 797 | 87.7% | 96.0% |
-| typo | 205 | 90.7% | 95.1% |
+| standard | 797 | 89.1% | 96.0% |
+| typo | 205 | 93.2% | 95.1% |
 | understated_severity | 2 | 100.0% | 50.0% |
 
 ## Paraphrase invariance
