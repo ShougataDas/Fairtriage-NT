@@ -174,7 +174,8 @@ def n_extract(s: State) -> dict:
 def gate(s: State) -> Literal["clarify", "assess"]:
     ex = Extraction.model_validate(s["extraction"])
     # A dangerous job is ranked at once. Asking first would delay a hazard.
-    if ex.endangers_person or ex.emergency_000:
+    # Someone hurt is never kept waiting on a question either.
+    if ex.endangers_person or ex.emergency_000 or ex.person_hurt:
         return "assess"
     if s.get("rounds", 0) >= policy()["extraction"]["max_clarification_rounds"]:
         return "assess"
@@ -205,6 +206,11 @@ def n_assess(s: State) -> dict:
     res = assess(ex, s.get("vulnerability") or [])
 
     flags = []
+    if ex.person_hurt and not ex.emergency_000:
+        flags.append({"code": "person_hurt",
+                      "detail": "someone may have been hurt; tenant told to call 000",
+                      "action": "phone the tenant now and check they are safe",
+                      "audience": "coordinator"})
     if ex.emergency_000:
         flags.append({"code": "emergency_000",
                       "detail": "life may be at risk now; tenant told to call 000",

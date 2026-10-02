@@ -41,6 +41,8 @@ export function ago(iso: string): string {
 
 const FLAG_LABELS: Record<string, string> = {
   extraction_fallback: "Model unavailable",
+  person_hurt: "Person may be hurt",
+  emergency_000: "Danger: call 000",
   normalisation_changed_outcome: "Spelling changed the reading",
 };
 

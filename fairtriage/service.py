@@ -149,7 +149,7 @@ def finalise(rid: str, st: dict, override: dict | None = None) -> dict:
         flags=flags, clarification=clar, override=override,
         actionability=ex.actionability.value, weights_version=st["weights_version"],
         hazard_domain=ex.hazard_domain.value, tenant_isolated=ex.tenant_isolated,
-        emergency=ex.emergency_000)
+        emergency=ex.emergency_000, person_hurt=ex.person_hurt)
 
     tenant = render_tenant(facts)
     problems = verify(tenant, facts)

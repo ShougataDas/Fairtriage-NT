@@ -440,7 +440,8 @@ class KeywordExtractor:
                 actionability=Actionability.OUT_OF_SCOPE, hazard_domain=HazardDomain.NONE,
                 is_active=True, endangers_person=True, essential_service_lost=False,
                 habitability=Habitability.NONE, whole_dwelling=False,
-                emergency_000=True, tenant_isolated=False, evidence_phrase=injury_clause[:200],
+                emergency_000=True, person_hurt=True, tenant_isolated=False,
+                evidence_phrase=injury_clause[:200],
                 confidence=Confidence.HIGH, missing_decisive_fact=DecisiveFact.NONE)
 
         # non-requests: only when no fault signal survives negation
@@ -502,8 +503,8 @@ class KeywordExtractor:
             actionability=Actionability.REPAIR,
             hazard_domain=HazardDomain(domain),
             is_active=not re.search(RESOLVED, low),
-            endangers_person=danger or bool(injury_clause),
-            emergency_000=bool(injury_clause),
+            endangers_person=danger,
+            person_hurt=bool(injury_clause),
             essential_service_lost=essential,
             habitability=hab,
             whole_dwelling=bool(re.search(WHOLE_DWELLING, low)) or (danger and domain == "gas"),
@@ -552,6 +553,7 @@ Rules:
 - whole_dwelling: true when the whole household is exposed to the harm: flooded, roof gone, no power or water to the house, or a gas leak (fumes reach everyone). False for one fixture or one room, and false for a door or lock problem.
 - emergency_000: true when life is at risk right now: fire, flames, explosion, someone electrocuted, injured, unconscious or not breathing, violence or a weapon (someone with a knife, someone being hit or threatened), or someone talking about harming themselves. Hedged wording still counts ("perhaps the gas is on fire"). A fire alarm beeping is not an emergency.
 - Violence, weapons, threats and self-harm are NOT repairs: set actionability "out_of_scope" with emergency_000 true and endangers_person true.
+- person_hurt: true if someone has been or may have been hurt (a fall from a roof or ladder, bleeding, knocked out). It does NOT raise the repair's urgency: judge endangers_person from the house alone ("he fell off the roof and now the roof leaks" is person_hurt true, and the leak judged on its own).
 - tenant_isolated: true ONLY if the tenant says they have already made it safe (power off at the meter box, gas off at the bottle, water off at the mains). Never assume it.
 - missing_decisive_fact: the ONE absent fact that would change the outcome. A blocked toilet with no mention of whether it is the only toilet -> "only_toilet". Otherwise "".
 

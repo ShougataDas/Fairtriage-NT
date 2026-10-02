@@ -43,7 +43,7 @@ def fact_sheet(*, request_id: str, text_original: str, evidence: str, tier: str,
                clarification: tuple[str, str] | None, override: dict | None,
                actionability: str, weights_version: str,
                hazard_domain: str = "", tenant_isolated: bool = False,
-               emergency: bool = False) -> dict:
+               emergency: bool = False, person_hurt: bool = False) -> dict:
     facts = {
         "request_id": request_id, "tier": tier, "tier_reason": tier_reason,
         "need": need, "rank": rank, "tier_size": tier_size,
@@ -62,7 +62,7 @@ def fact_sheet(*, request_id: str, text_original: str, evidence: str, tier: str,
         "clarification": clarification, "override": override,
         "distance_used_in_need": False, "weights_version": weights_version,
         "hazard_domain": hazard_domain, "tenant_isolated": tenant_isolated,
-        "emergency": emergency,
+        "emergency": emergency, "person_hurt": person_hurt,
         "not_counted": ["how far a tradesperson has to travel",
                         "how the message was written"],
     }
@@ -132,8 +132,13 @@ def render_tenant(f: dict) -> str:
 
     w = f["wait"]
     said = " ".join([f.get("text_original", "")] + list(f["clarification"] or ())).lower()
+    if f.get("person_hurt") and not f.get("emergency"):
+        # someone hurt (a fall, bleeding): an ambulance first, then the repair
+        # answer as normal, wait included. The injury does not rank the repair.
+        L.append("If anyone is hurt, call 000 now for an ambulance. Do not wait for us. "
+                 "A staff member will also phone you.")
+        L.append("")
     if f.get("emergency") and not re.search(FIRE_WORDS, said):
-        # someone hurt (a fall, bleeding): an ambulance, not "get out of the house"
         L.append("If anyone is hurt, call 000 now for an ambulance. Do not wait for us.")
         L.append("")
         L.append("Once everyone is safe, a staff member will phone you to arrange "

@@ -121,6 +121,12 @@ class Extraction(BaseModel):
                     "electrocuted, injured, unconscious or not breathing. The tenant "
                     "must be told to call 000. Hedged wording still counts: 'perhaps "
                     "the gas is on fire' is an emergency.")
+    person_hurt: bool = Field(
+        default=False,
+        description="Someone has been or may have been hurt (a fall, bleeding, a knock "
+                    "to the head). The tenant is told to call 000 for an ambulance and "
+                    "staff phone them. It does NOT make the repair more urgent: rank the "
+                    "repair on the house's own facts.")
     tenant_isolated: bool = Field(
         default=False,
         description="The tenant SAYS they have already made it safe: power switched "

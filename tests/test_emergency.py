@@ -201,10 +201,15 @@ def test_fall_and_roof_leak_are_both_heard():
     t = r["explanation_tenant"]
     assert t.startswith("If anyone is hurt, call 000 now for an ambulance")
     assert "get everyone out" not in t
-    assert r["tier"] == "Immediate"
+    # the fall gets the ambulance advice and a phone call; it does NOT rank the
+    # roof leak above gas leaks and sparking sockets. A leak in the rain: Urgent.
+    assert r["tier"] == "Urgent"
+    assert "Expect a tradesperson" in t                # the wait is still given
+    assert any(f["code"] == "person_hurt" for f in r["flags"])
     assert text in t                                   # the whole message is quoted back
     v = service.request_view(r["request_id"])
     assert "leaking" in v["assessment"]["facts"]["evidence"]   # the repair, not the fall
+    assert v["assessment"]["need"] < 100                       # not an emergency score
 
 
 @pytest.mark.parametrize("text", [
@@ -229,3 +234,15 @@ def test_evidence_prefers_the_clause_where_something_fails():
     from fairtriage.extract import KeywordExtractor
     e = KeywordExtractor().extract("we painted the door last week, and now the kitchen tap is leaking")
     assert "leaking" in e.evidence_phrase
+
+
+
+def test_a_fall_does_not_jump_the_queue_ahead_of_a_gas_leak():
+    from fairtriage import service
+    from fairtriage.schemas import LodgeIn
+    gas = service.lodge(LodgeIn(text="strong gas smell in the kitchen", community="Darwin (Parap)"))
+    fall = service.lodge(LodgeIn(text="my son fell off the ladder, and the gutter is broken",
+                                 community="Darwin (Parap)"))
+    q = [r["request_id"] for r in service.queue_view()]
+    assert q.index(gas["request_id"]) < q.index(fall["request_id"])
+    assert fall["explanation_tenant"].startswith("If anyone is hurt, call 000")
