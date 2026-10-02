@@ -3,7 +3,7 @@
     <span>Customer copy</span>
     <span class="ref">{{ request_id }}</span>
   </div>
-  {% set emergency = paragraphs and paragraphs[0] and paragraphs[0][0].startswith('If there is a fire, or anyone is hurt, call 000') %}
+  {% set emergency = paragraphs and paragraphs[0] and (paragraphs[0][0].startswith('If there is a fire, or anyone is hurt, call 000') or paragraphs[0][0].startswith('If anyone is in danger, call 000')) %}
   {% if emergency %}<p class="emergency" role="alert">{{ paragraphs[0]|join(' ') }}</p>{% endif %}
   <div class="stamp {{ tier }}">{% if tier == 'NotInQueue' %}Not a repair job{% else %}{{ tier }}{% endif %}</div>
   {% for para in (paragraphs[1:] if emergency else paragraphs) %}

@@ -5,7 +5,8 @@ import { ArrowUpRight, Check, CircleCheck, Clock, Copy, House, ListOrdered, Mess
 import type { Tier } from "@/lib/api";
 import { cx, paragraphs, tierMeaning, tierStyle } from "@/lib/format";
 
-const EMERGENCY = "If there is a fire, or anyone is hurt, call 000";
+// first lines that mean "call 000 before reading anything else"
+const EMERGENCY = ["If there is a fire, or anyone is hurt, call 000", "If anyone is in danger, call 000"];
 const SAFETY = ["If it is safe to do so", "If you can,", "Keep children", "Keep everyone", "Thank you for making it safe"];
 
 type Kind = "wait" | "why" | "safety" | "queue" | "override" | "worse" | "footer" | "other";
@@ -30,17 +31,20 @@ export function Docket({
   requestId, tier, explanation, address, community,
 }: { requestId: string; tier: Tier; explanation: string; address?: string | null; community?: string }) {
   const paras = paragraphs(explanation);
-  const emergency = tier !== "NotInQueue" && paras[0]?.[0]?.startsWith(EMERGENCY);
+  const emergency = EMERGENCY.some((e) => paras[0]?.[0]?.startsWith(e));
   const rest = emergency ? paras.slice(1) : paras;
   const groups: Record<Kind, string[][]> = { wait: [], why: [], safety: [], queue: [], override: [], worse: [], footer: [], other: [] };
   for (const p of rest) groups[kindOf(p[0])].push(p);
 
   const wait = groups.wait[0];
   const s = tierStyle[tier];
-  const headline = wait?.[0] ?? (tier === "NotInQueue" ? rest[0]?.[0] : undefined);
-  const headlineRest = wait ? wait.slice(1) : tier === "NotInQueue" ? rest[0]?.slice(1) ?? [] : [];
+  // Not a repair: the message's first paragraph is the headline, shown once.
+  const lead = tier === "NotInQueue" ? rest[0] : undefined;
+  const headline = wait?.[0] ?? lead?.[0];
+  const headlineRest = wait ? wait.slice(1) : lead?.slice(1) ?? [];
   const whyLines = groups.why.flat().filter((l) => !l.startsWith("Your repair is in the"));
-  const other = tier === "NotInQueue" ? rest.slice(1).filter((p) => kindOf(p[0]) !== "footer") : groups.other;
+  // every paragraph appears in exactly one place
+  const other = groups.other.filter((p) => p !== lead);
 
   return (
     <article aria-label="Your repair record" className="overflow-hidden rounded-3xl border border-line bg-paper shadow-md">
@@ -59,7 +63,7 @@ export function Docket({
           </span>
           <span className={cx("inline-flex items-center gap-1.5 rounded-full bg-paper px-3 py-1 text-sm font-bold ring-1 ring-inset", s.text, s.ring)}>
             <span className={cx("size-2 rounded-full", s.dot)} aria-hidden />
-            {s.label} priority
+            {tier === "NotInQueue" ? s.label : `${s.label} priority`}
           </span>
         </div>
         {headline && (
@@ -74,8 +78,8 @@ export function Docket({
 
       <div className="flex flex-col divide-y divide-line">
         {whyLines.length > 0 && (
-          <Section icon={<MessageSquareQuote className="size-5" aria-hidden />} title={`Why it is ${s.label}`}>
-            <p className="text-muted">{tierMeaning[tier]}</p>
+          <Section icon={<MessageSquareQuote className="size-5" aria-hidden />} title={tier === "NotInQueue" ? "What you told us" : `Why it is ${s.label}`}>
+            {tier !== "NotInQueue" && <p className="text-muted">{tierMeaning[tier]}</p>}
             {whyLines.map((l, i) =>
               l.startsWith("You told us:") || l.startsWith("We asked:") ? (
                 <blockquote key={i} className="rounded-xl bg-canvas px-4 py-3 italic">{l}</blockquote>

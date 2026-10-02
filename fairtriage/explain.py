@@ -76,6 +76,23 @@ def render_tenant(f: dict) -> str:
     tier = f["tier"]
 
     if tier == "NotInQueue":
+        if f.get("emergency"):
+            # danger to a person that a tradesperson cannot fix: 000 first,
+            # nothing before it, and say plainly that a person has been told
+            from .extract import SELF_HARM
+            said = " ".join([f.get("text_original", "")] + list(f["clarification"] or ())).lower()
+            L = ["If anyone is in danger, call 000 now for police or ambulance. Do not wait for us."]
+            if re.search(SELF_HARM, said):
+                L.append("If you are thinking about hurting yourself, call Lifeline on 13 11 14, "
+                         "any time, day or night.")
+            L += ["", "This is not something a tradesperson can fix, but a staff member has been "
+                  "told straight away and will phone you.", "",
+                  f"You told us: \u201c{f['evidence']}\u201d"]
+            if f["clarification"]:
+                q, a = f["clarification"]
+                L.append(f"We asked: \u201c{q}\u201d You said: \u201c{a}\u201d")
+            L += ["", f"Reference {f['request_id']}."]
+            return "\n".join(L)
         if f["actionability"] == "withdrawal":
             return (
                 "Thanks for letting us know.\n\n"
@@ -234,6 +251,7 @@ def verify(text: str, f: dict) -> list[str]:
     # 000 is the emergency number, not a claim about the repair. Match it only
     # as a standalone number, so "3000" or a reference like NTF3-00001 is untouched.
     scan = re.sub(r"(?<![\w-])000(?![\w-])", " ", text.replace(f["request_id"], " "))
+    scan = scan.replace("13 11 14", " ")
     for n in _NUM.findall(scan):
         if n not in ok:
             problems.append(f"invented number {n}")

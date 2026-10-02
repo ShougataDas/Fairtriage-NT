@@ -260,12 +260,35 @@ EMERGENCY = (r"\b(on fire|caught fire|catch(es|ing)? (on )?fire|in flames|blaze|
              r"|\b(electrocuted|unconscious|not breathing|can'?t breathe|collapsed on)\b"
              r"|\b(got|had|took) a (bad |big |nasty )?(electric )?shock\b"
              r"|\bbadly (hurt|burnt|burned|cut|injured)\b")
+# Danger to a PERSON that no tradesperson can fix: violence, weapons, threats,
+# self-harm. Not a repair, so it never enters the repair queue or a trip; the
+# tenant is told to call 000 first and staff see it at the top of the phone
+# list. A weapon only counts with a person acting on it: "the knife drawer is
+# broken" is a cupboard, "termites attacking the frame" is pests.
+PERSONAL_DANGER = (
+    r"\b(has|have|had|holding|holds|held|with|pulled|pulling|waving|carrying|got|grabbed)\s+(a\s+|an\s+|the\s+)?"
+    r"(knife|knives|machete|gun|rifle|shotgun|pistol|weapon|axe|tomahawk|spear|crowbar|broken bottle)\b"
+    r"|\b(knife|machete|gun|rifle|weapon|axe)\s+(in|at)\s+(his|her|their|my|your|our)\s+(hands?|throat|neck|head)\b"
+    r"|\bpoint(ing|ed)\s+(a\s+)?(gun|knife|weapon)\b"
+    r"|\b(stabb(ed|ing)|got stabbed|been shot|shot (him|her|them|me|someone))\b"
+    r"|\b(hitting|bashing|punching|kicking|beating|choking|strangling|attacking|assaulting|hurting)\s+"
+    r"(me|him|her|them|us|my|his|their|someone|somebody|each other)\b"
+    r"|\b(bashed|beaten|beat up|attacked|assaulted|hit|punched)\s+(me|him|her|them|us|my|someone|somebody)\b"
+    r"|\bthreat\w*\s+to\s+(kill|hurt|stab|bash|shoot|burn)\b|\b(going|gonna|wants?)\s+to\s+(kill|stab|shoot)\b"
+    r"|\bdomestic violence\b|\bfamily violence\b|\b(being|been|getting)\s+(attacked|assaulted|bashed|beaten)\b"
+    r"|\bsomeone\b.{0,20}\b(broke|breaking|forcing) (in|into the house)\b.{0,30}\b(now|still here|inside)\b"
+)
+SELF_HARM = (r"\b(kill(ing)? myself|end(ing)? my life|suicid\w*|want(s)? to die|hurt(ing)? myself|"
+             r"harm(ing)? myself|take my (own )?life)\b")
+
 # a smoke alarm is not smoke: masked before the danger rules read a clause
 SAFETY_DEVICE = r"\bsmoke (alarms?|detectors?)\b"
 EMERGENCY_NOT = r"\bfire ?(alarm|extinguisher|place|pit|wood|works|blanket|door|escape|brigade|hydrant|ant|fly)"
 UNCERTAIN = (r"\b(do ?n[o']?t know|dont know|not sure|unsure|no idea|can(no|')?t (describe|tell|explain)|"
              r"source unknown|unknown (source|cause)|no (other|more|further) details?|"
              r"seems? (funny|strange|weird|off)|acts? (funny|strange|weird)|something (is )?(wrong|off|funny)|"
+             # "not right" says something IS wrong; read as a denial it was closed unasked
+             r"(is |are |isn'?t |aren'?t |ain'?t )?(not|no) (right|good|working right|working properly)|"
              r"not certain|hard to (say|describe))\b")
 VAGUE_ONLY = (r"^\W*(the |my |a |our )?(\w+ )?(problem|issue|trouble)\b"
               r"|\b(\w+) (problem|issue|trouble),? (please|pls|plz) (call|ring|contact)\b")
@@ -314,6 +337,19 @@ class KeywordExtractor:
         t = text.strip()
         low = t.lower()
         clauses = _clauses(t) or [t]
+
+        # ---- danger to a person: before everything, never downgraded by a hedge
+        for cl in clauses:
+            c = cl.lower()
+            live = [m for m in re.finditer(PERSONAL_DANGER, c) if not _negated(c, m)]
+            live += [m for m in re.finditer(SELF_HARM, c) if not _negated(c, m)]
+            if live and not _resolved(c):
+                return Extraction(
+                    actionability=Actionability.OUT_OF_SCOPE, hazard_domain=HazardDomain.NONE,
+                    is_active=True, endangers_person=True, essential_service_lost=False,
+                    habitability=Habitability.NONE, whole_dwelling=False,
+                    emergency_000=True, tenant_isolated=False, evidence_phrase=cl[:200],
+                    confidence=Confidence.HIGH, missing_decisive_fact=DecisiveFact.NONE)
 
         # ---- emergency: before anything else, and never downgraded by a hedge
         for cl in clauses:
@@ -475,7 +511,8 @@ Rules:
 - evidence_phrase: copy the tenant's words VERBATIM. Never paraphrase.
 - confidence "low" when the message is too vague to classify. Do not guess a hazard to fill the field.
 - whole_dwelling: true when the whole household is exposed to the harm: flooded, roof gone, no power or water to the house, or a gas leak (fumes reach everyone). False for one fixture or one room, and false for a door or lock problem.
-- emergency_000: true when life is at risk right now: fire, flames, explosion, someone electrocuted, injured, unconscious or not breathing. Hedged wording still counts ("perhaps the gas is on fire"). A fire alarm beeping is not an emergency.
+- emergency_000: true when life is at risk right now: fire, flames, explosion, someone electrocuted, injured, unconscious or not breathing, violence or a weapon (someone with a knife, someone being hit or threatened), or someone talking about harming themselves. Hedged wording still counts ("perhaps the gas is on fire"). A fire alarm beeping is not an emergency.
+- Violence, weapons, threats and self-harm are NOT repairs: set actionability "out_of_scope" with emergency_000 true and endangers_person true.
 - tenant_isolated: true ONLY if the tenant says they have already made it safe (power off at the meter box, gas off at the bottle, water off at the mains). Never assume it.
 - missing_decisive_fact: the ONE absent fact that would change the outcome. A blocked toilet with no mention of whether it is the only toilet -> "only_toilet". Otherwise "".
 

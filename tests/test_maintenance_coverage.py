@@ -134,6 +134,8 @@ ASK = [
     "the toilet wont flush",          # only toilet?
     "something wrong with the shower",
     "the house has a problem",
+    "something is not right in the house",
+    "the shower is not right",
 ]
 
 

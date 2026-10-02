@@ -162,6 +162,7 @@ def finalise(rid: str, st: dict, override: dict | None = None) -> dict:
     # An unclear report never just disappears: after one question it goes to a
     # person to phone the tenant.
     status = ("needs_phone_call" if ex.actionability.value == "unclear"
+              or (ex.emergency_000 and tier == "NotInQueue")
               else "awaiting_confirmation" if ex.actionability.value == "withdrawal"
               else "not_in_queue" if tier == "NotInQueue"
               else "approved" if override else "ranked")
@@ -319,10 +320,15 @@ def contact_list() -> list[dict]:
     or a withdrawal that may mean the tenant gave up. Shown above the queue."""
     rows = db.col(REQUESTS).find(
         {"status": {"$in": ["needs_phone_call", "awaiting_confirmation"]}}).sort("lodged_at", 1)
-    return [{"request_id": r["_id"], "community": r["dwelling"]["community"],
-             "address": r["dwelling"].get("address"), "phone": r["dwelling"].get("phone"),
-             "status": r["status"], "text": r["text_original"],
-             "answer": r.get("clarification_a"), "lodged_at": r["lodged_at"]} for r in rows]
+    out = [{"request_id": r["_id"], "community": r["dwelling"]["community"],
+            "address": r["dwelling"].get("address"), "phone": r["dwelling"].get("phone"),
+            "status": r["status"], "text": r["text_original"],
+            "answer": r.get("clarification_a"), "lodged_at": r["lodged_at"],
+            "danger": any(fl.get("code") == "emergency_000"
+                          for fl in ((r.get("assessment") or {}).get("flags") or []))}
+           for r in rows]
+    # someone in danger is phoned first
+    return sorted(out, key=lambda c: not c["danger"])
 
 
 def all_requests_view() -> list[dict]:

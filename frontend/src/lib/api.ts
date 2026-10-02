@@ -140,6 +140,7 @@ export interface Contact {
   text: string;
   answer: string | null;
   lodged_at: string;
+  danger?: boolean;
 }
 
 export interface CommunityGroup {

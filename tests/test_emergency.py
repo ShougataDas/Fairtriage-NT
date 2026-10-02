@@ -120,3 +120,70 @@ def test_hedges_never_cancel_a_hazard(text):
     from fairtriage.extract import KeywordExtractor
     e = KeywordExtractor().extract(text)
     assert e.endangers_person, text
+
+
+
+# --- danger to a person: not a repair, but never a shrug ---------------------
+
+def test_weapon_revealed_in_an_answer_means_call_000_and_a_phone_call():
+    """Regression: a fight, then "he has a knife in his hand", was told "we
+    could not tell what needs fixing"."""
+    from fairtriage import service
+    from fairtriage.schemas import LodgeIn
+    r = service.lodge(LodgeIn(text="my friend alvi start fighting with another person, and noise is too much",
+                              community="Darwin (Brinkin)", address="7 Ellengowan Dr"))
+    if r["status"] == "awaiting_tenant":
+        r = service.clarify(r["request_id"], "Alvi has knife in his hand")
+    assert r["explanation_tenant"].startswith("If anyone is in danger, call 000 now")
+    assert r["status"] == "needs_phone_call" and r["tier"] == "NotInQueue"
+    assert any(f["code"] == "emergency_000" for f in r["flags"])
+    contacts = service.contact_list()
+    assert contacts[0]["request_id"] == r["request_id"] and contacts[0]["danger"]
+    assert r["request_id"] not in {q["request_id"] for q in service.queue_view()}  # never a trip
+
+
+@pytest.mark.parametrize("text", [
+    "my neighbour has a knife and is threatening to kill us",
+    "he is hitting her right now in the lounge",
+    "someone pulled a gun on my son",
+    "my partner bashed me last night and is still here",
+    "family violence, please help",
+])
+def test_violence_and_weapons_are_emergencies(text):
+    from fairtriage.extract import KeywordExtractor
+    e = KeywordExtractor().extract(text)
+    assert e.emergency_000 and not e.in_queue, text
+
+
+def test_self_harm_gets_lifeline_as_well_as_000():
+    from fairtriage import service
+    from fairtriage.schemas import LodgeIn
+    r = service.lodge(LodgeIn(text="the house is a mess and i want to kill myself", community="Wadeye"))
+    assert r["explanation_tenant"].startswith("If anyone is in danger, call 000 now")
+    assert "Lifeline on 13 11 14" in r["explanation_tenant"]
+    assert not any(f["code"] == "explanation_check_failed" for f in r["flags"])
+
+
+@pytest.mark.parametrize("text, tier", [
+    ("the knife drawer in the kitchen is broken", "Routine"),
+    ("termites attacking the door frame", "Routine"),
+    ("the neighbours are fighting and it is very noisy", "NotInQueue"),
+])
+def test_ordinary_words_are_not_emergencies(text, tier):
+    from fairtriage.extract import KeywordExtractor
+    from fairtriage.policy import tier_of
+    e = KeywordExtractor().extract(text)
+    assert not e.emergency_000, text
+    assert tier_of(e)[0] == tier, text
+
+
+def test_still_unclear_after_asking_reaches_a_person():
+    """Regression: "something is not right" was read as "no problem" and closed
+    without a question; an unclear report must end on the phone list."""
+    from fairtriage import service
+    from fairtriage.schemas import LodgeIn
+    r = service.lodge(LodgeIn(text="something is not right in the house", community="Darwin (Parap)"))
+    assert r["status"] == "awaiting_tenant"
+    r = service.clarify(r["request_id"], "i dont know really")
+    assert r["status"] == "needs_phone_call"
+    assert r["explanation_tenant"].count("You told us:") == 1
