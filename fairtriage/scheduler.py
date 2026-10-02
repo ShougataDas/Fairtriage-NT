@@ -75,6 +75,7 @@ class Job:
     trade_region: str = ""
     prev_wait_days: float | None = None
     address: str | None = None
+    status: str = "ranked"          # before booking: ranked or approved
 
 
 def _days_since(iso: str) -> float:
@@ -99,7 +100,8 @@ def _load_jobs() -> list[Job]:
             target_days=targets[a["tier"]]["remote" if c.remote else "urban"],
             evidence=(a.get("facts") or {}).get("evidence", ""),
             key=sort_key(a["tier"], a["need_score"], req["lodged_at"]),
-            trade_region=c.trade_region, prev_wait_days=prev, address=dw.get("address")))
+            trade_region=c.trade_region, prev_wait_days=prev, address=dw.get("address"),
+            status=req["status"]))
     return jobs
 
 
@@ -710,7 +712,7 @@ def to_dict(tp: TripPlan) -> dict:
     }
 
 
-def _commit(plans: list[TripPlan]) -> None:
+def _commit(plans: list[TripPlan], actor: str = "coordinator-demo") -> None:
     now_dt = datetime.now(timezone.utc)
     wd = _cfg()["workday_hours"]
     booked = {st.job.request_id for tp in plans for st in tp.stops}
@@ -721,11 +723,17 @@ def _commit(plans: list[TripPlan]) -> None:
             "trigger": tp.trigger, "trade": tp.trade, "capacity_hours": tp.capacity_hours,
             "jobs": [{"request_id": j.request_id, "community": j.community,
                       "tier": j.tier, "reason": r, "detour_km": 0.0,
-                      "eta_hours": st["eta_hours"], "eta_days": st["eta_days"]}
+                      "eta_hours": st["eta_hours"], "eta_days": st["eta_days"],
+                      "address": j.address, "prev_status": j.status, "removed": False}
                      for (j, r, _), st in zip(tp.batched, d["stops"])],
             "left_behind": d["left_behind"], "start": tp.start, "headline": tp.headline,
             "explanation": tp.explanation, "route": d["route"], "options": d["options"],
-            "benefit": d["benefit"], "created_at": now()})
+            "benefit": d["benefit"], "created_at": now(),
+            "status": "approved",
+            # jobs this approval passed over for lack of room: undone on cancel
+            "deferred": [j.request_id for j, reason in tp.left_behind
+                         if "capacity" in reason and j.request_id not in booked],
+            "history": [{"action": "approved", "at": now(), "actor": actor, "reason": None}]})
         n = len(tp.stops)
         for i, st in enumerate(tp.stops, 1):
             fields = {"status": "scheduled", "trip_id": tp.id, "trip_stop": i, "trip_stops": n,
@@ -744,5 +752,107 @@ def trips_view() -> list[dict]:
              "jobs": t.get("jobs", []), "left_behind": t.get("left_behind", []),
              "start": t.get("start"), "headline": t.get("headline"),
              "explanation": t.get("explanation"), "route": t.get("route"),
-             "benefit": t.get("benefit"), "created_at": t["created_at"]}
+             "benefit": t.get("benefit"), "created_at": t["created_at"],
+             "status": t.get("status", "approved"), "history": t.get("history", []),
+             "active_jobs": sum(1 for j in t.get("jobs", []) if not j.get("removed"))}
             for t in db.col(TRIPS).find().sort("created_at", -1)]
+
+
+# ---------------------------------------------------------------------------
+# Changing an approval. Nothing is deleted: the trip keeps every job it ever
+# had, marked, and a dated history of who changed what and why.
+# ---------------------------------------------------------------------------
+
+class TripError(Exception):
+    pass
+
+
+def _trip(trip_id: str) -> dict:
+    t = db.col(TRIPS).find_one({"_id": trip_id})
+    if t is None:
+        raise KeyError(trip_id)
+    if t.get("status", "approved") != "approved":
+        raise TripError(f"this trip is already {t['status']}")
+    return t
+
+
+def _release(t: dict, job: dict, why: str, actor: str) -> bool:
+    """Put one job back in the queue, as it was before the trip booked it.
+    Only touches the request if it is still booked on THIS trip."""
+    from .db import DECISIONS
+    req = db.get_request(job["request_id"])
+    if not req or req.get("trip_id") != t["_id"] or req["status"] != "scheduled":
+        return False
+    fields = {"status": job.get("prev_status") or "ranked", "trip_id": None,
+              "trip_stop": None, "trip_stops": None, "eta_at": None}
+    if req.get("advanced_by") == t["anchor_request_id"]:
+        fields["advanced_by"] = None
+    db.update_request(job["request_id"], fields)
+    db.append(DECISIONS, {"request_id": job["request_id"], "actor": actor, "action": why,
+                          "from_tier": job.get("tier"), "to_tier": job.get("tier"),
+                          "reason": f"trip {t['_id']}"})
+    return True
+
+
+def _need_reason(reason: str | None) -> str:
+    if not reason or len(reason.strip()) < 3:
+        raise TripError("give a reason: it is kept with the trip's history")
+    return reason.strip()
+
+
+def cancel_trip(trip_id: str, reason: str | None, actor: str = "coordinator-demo") -> dict:
+    """Withdraw an approval. Its jobs go back to the queue, tenants stop seeing
+    the trip, and the jobs it passed over are no longer counted as deferred."""
+    reason = _need_reason(reason)
+    t = _trip(trip_id)
+    released = sum(_release(t, j, "trip_cancelled", actor) for j in t["jobs"] if not j.get("removed"))
+    for rid in t.get("deferred", []):
+        db.col(REQUESTS).update_one({"_id": rid, "prior_deferrals": {"$gt": 0}},
+                                    {"$inc": {"prior_deferrals": -1}})
+    db.col(TRIPS).update_one({"_id": trip_id}, {
+        "$set": {"status": "cancelled"},
+        "$push": {"history": {"action": "cancelled", "at": now(), "actor": actor,
+                              "reason": reason, "jobs_returned": released}}})
+    return next(v for v in trips_view() if v["id"] == trip_id)
+
+
+def remove_from_trip(trip_id: str, request_id: str, reason: str | None,
+                     actor: str = "coordinator-demo") -> dict:
+    """Take one job off an approved trip; it goes back to the queue. A trip left
+    with no jobs is cancelled."""
+    reason = _need_reason(reason)
+    t = _trip(trip_id)
+    job = next((j for j in t["jobs"] if j["request_id"] == request_id and not j.get("removed")), None)
+    if job is None:
+        raise TripError(f"{request_id} is not on this trip")
+    _release(t, job, "removed_from_trip", actor)
+    db.col(TRIPS).update_one({"_id": trip_id, "jobs.request_id": request_id},
+                             {"$set": {"jobs.$.removed": True},
+                              "$push": {"history": {"action": "job_removed", "at": now(),
+                                                    "actor": actor, "reason": reason,
+                                                    "request_id": request_id}}})
+    left = [j for j in db.col(TRIPS).find_one({"_id": trip_id})["jobs"] if not j.get("removed")]
+    if not left:
+        db.col(TRIPS).update_one({"_id": trip_id}, {
+            "$set": {"status": "cancelled"},
+            "$push": {"history": {"action": "cancelled", "at": now(), "actor": actor,
+                                  "reason": "every job was removed"}}})
+    return next(v for v in trips_view() if v["id"] == trip_id)
+
+
+def complete_trip(trip_id: str, actor: str = "coordinator-demo") -> dict:
+    """The crew has done the work: the trip's jobs are closed as completed."""
+    t = _trip(trip_id)
+    done = 0
+    for j in t["jobs"]:
+        if j.get("removed"):
+            continue
+        req = db.get_request(j["request_id"])
+        if req and req.get("trip_id") == trip_id and req["status"] == "scheduled":
+            db.update_request(j["request_id"], {"status": "completed", "completed_at": now()})
+            done += 1
+    db.col(TRIPS).update_one({"_id": trip_id}, {
+        "$set": {"status": "completed", "completed_at": now()},
+        "$push": {"history": {"action": "completed", "at": now(), "actor": actor,
+                              "reason": None, "jobs_completed": done}}})
+    return next(v for v in trips_view() if v["id"] == trip_id)

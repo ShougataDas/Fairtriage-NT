@@ -64,6 +64,7 @@ export const statusLabel: Record<string, string> = {
   ranked: "In the queue",
   approved: "Approved by staff",
   scheduled: "Trip booked",
+  completed: "Repair done",
   not_in_queue: "Not a repair job",
   needs_phone_call: "Staff will phone you",
   awaiting_confirmation: "Staff will check with you",

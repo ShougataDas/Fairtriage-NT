@@ -268,8 +268,15 @@ export interface ConfirmedTrip {
   headline: string | null;
   explanation: string | null;
   created_at: string;
-  jobs: { request_id: string; community: string; tier: Tier; reason: string; eta_hours?: number }[];
+  jobs: {
+    request_id: string; community: string; tier: Tier; reason: string; eta_hours?: number;
+    address?: string | null; removed?: boolean;
+  }[];
   left_behind: { request_id: string; community: string; tier: Tier; reason: string }[];
+  status?: "approved" | "completed" | "cancelled";
+  active_jobs?: number;
+  route?: { by_air?: boolean } | null;
+  history?: { action: string; at: string; actor: string; reason: string | null; request_id?: string }[];
 }
 
 export interface Equity {

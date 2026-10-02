@@ -17,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 from . import metrics, scheduler, service
 from .config import policy, reader_status
 from .reference import communities, road_km, trade_capacity
-from .schemas import ClarifyIn, DecisionIn, LodgeIn
+from .schemas import ClarifyIn, DecisionIn, LodgeIn, TripChangeIn
 
 WEB = Path(__file__).parent / "web"
 app = FastAPI(title="FairTriage NT", version="3.0")
@@ -159,6 +159,33 @@ def api_plan(anchor: Optional[str] = None):
     become scheduled with an arrival time."""
     plans = scheduler.plan(commit=True, only=anchor)
     return [scheduler.to_dict(t) for t in plans if anchor is None or t.anchor.request_id == anchor]
+
+
+@app.post("/api/trips/{trip_id}/cancel")
+def api_trip_cancel(trip_id: str, body: TripChangeIn):
+    return _trip_change(lambda: scheduler.cancel_trip(trip_id, body.reason, body.actor))
+
+
+@app.post("/api/trips/{trip_id}/remove")
+def api_trip_remove(trip_id: str, body: TripChangeIn):
+    if not body.request_id:
+        raise HTTPException(422, "say which job to remove (request_id)")
+    return _trip_change(lambda: scheduler.remove_from_trip(trip_id, body.request_id, body.reason, body.actor))
+
+
+@app.post("/api/trips/{trip_id}/complete")
+def api_trip_complete(trip_id: str, body: TripChangeIn | None = None):
+    actor = body.actor if body else "coordinator-demo"
+    return _trip_change(lambda: scheduler.complete_trip(trip_id, actor))
+
+
+def _trip_change(fn):
+    try:
+        return fn()
+    except KeyError:
+        raise HTTPException(404, "no such trip")
+    except scheduler.TripError as e:
+        raise HTTPException(409, str(e))
 
 
 @app.post("/api/teams/{trade_region}")

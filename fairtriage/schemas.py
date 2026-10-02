@@ -202,6 +202,12 @@ class ClarifyIn(BaseModel):
     answer: str = Field(min_length=1, max_length=500)
 
 
+class TripChangeIn(BaseModel):
+    reason: Optional[str] = Field(default=None, max_length=400)
+    request_id: Optional[str] = None
+    actor: str = "coordinator-demo"
+
+
 class DecisionIn(BaseModel):
     action: str = Field(pattern="^(approve|override|request_info)$")
     to_tier: Optional[str] = None

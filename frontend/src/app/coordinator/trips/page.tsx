@@ -10,6 +10,7 @@ import {
 import { fetcher, post, type CommunityGroup, type ConfirmedTrip, type TripPlan, type TripPreview } from "@/lib/api";
 import { cx, hoursOrDays, tierStyle, when } from "@/lib/format";
 import { Button, Card, CardTitle, Empty, ErrorBox, PageHeader, Pill, Spinner, TierBadge, inputClass } from "@/components/ui";
+import { ApprovedTrips } from "@/components/ApprovedTrips";
 
 // Leaflet needs the browser: load the map on the client only.
 const TripMap = dynamic(() => import("@/components/TripMap"), {
@@ -23,6 +24,7 @@ export default function TripsPage() {
   const { data, error, isLoading, mutate } = useSWR<TripPreview>("/api/trips/preview", fetcher, { refreshInterval: 30000 });
   const { data: confirmed, mutate: mutateConfirmed } = useSWR<ConfirmedTrip[]>("/api/trips", fetcher);
   const [selected, setSelected] = useState<string | null>(null);
+  const [view, setView] = useState<"recommended" | "approved">("recommended");
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmAll, setConfirmAll] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -30,6 +32,7 @@ export default function TripsPage() {
   const detailRef = useRef<HTMLDivElement>(null);
 
   const trips = useMemo(() => (data?.trips ?? []).filter((t) => t.route), [data]);
+  const activeApproved = (confirmed ?? []).filter((t) => (t.status ?? "approved") === "approved").length;
   const unreachable = (data?.trips ?? []).filter((t) => !t.route);
   const current = trips.find((t) => keyOf(t) === selected) ?? trips[0];
 
@@ -43,7 +46,7 @@ export default function TripsPage() {
     try {
       const r = await post<TripPlan[]>(`/api/trips/plan${anchor ? `?anchor=${encodeURIComponent(anchor)}` : ""}`);
       const n = r.filter((t) => t.route).length;
-      setNotice(anchor ? `Trip approved. ${r[0]?.stops.length ?? 0} tenants can now see when to expect someone.` : `${n} trips approved.`);
+      setNotice(anchor ? `Trip approved. ${r[0]?.stops.length ?? 0} tenants can now see when to expect someone. See it under Approved.` : `${n} trips approved. See them under Approved.`);
       setConfirmAll(false);
       setSelected(null);
       await Promise.all([mutate(), mutateConfirmed()]);
@@ -65,7 +68,7 @@ export default function TripsPage() {
       <PageHeader
         title="Trip planner"
         lede="Plans the trips maintenance crews make to towns and remote communities outside Darwin."
-        aside={trips.length > 1 && <Button variant="secondary" onClick={() => setConfirmAll(true)} className="self-start">Approve all {trips.length}</Button>}
+        aside={view === "recommended" && trips.length > 1 && <Button variant="secondary" onClick={() => setConfirmAll(true)} className="self-start">Approve all {trips.length}</Button>}
       />
 
       <section aria-label="About this page" className="rounded-2xl border border-line bg-paper p-5 shadow-sm">
@@ -88,6 +91,30 @@ export default function TripsPage() {
         </ol>
       </section>
 
+      <div role="tablist" aria-label="Trips" className="flex gap-2 border-b border-line">
+        {([
+          ["recommended", "Recommended", trips.length],
+          ["approved", "Approved", activeApproved],
+        ] as const).map(([v, label, n]) => (
+          <button
+            key={v}
+            role="tab"
+            aria-selected={view === v}
+            onClick={() => setView(v)}
+            className={cx(
+              "-mb-px flex items-center gap-2 border-b-4 px-4 py-3 text-lg font-bold",
+              view === v ? "border-ink text-ink" : "border-transparent text-muted hover:text-graphite",
+            )}
+          >
+            {label}
+            <span className={cx("rounded-full px-2.5 py-0.5 text-sm", view === v ? "bg-ink text-white" : "bg-canvas text-muted")}>{n}</span>
+          </button>
+        ))}
+      </div>
+
+      {view === "approved" && <ApprovedTrips trips={confirmed ?? []} onChanged={() => Promise.all([mutate(), mutateConfirmed()])} />}
+
+      {view === "recommended" && (<>
       {confirmAll && (
         <div role="alertdialog" aria-labelledby="all-title" className="flex flex-col gap-3 rounded-2xl border-2 border-ink bg-ink-soft p-5 sm:flex-row sm:items-center">
           <div className="flex-1">
@@ -155,32 +182,8 @@ export default function TripsPage() {
       )}
 
       {data && <Rules rules={data.rules} />}
+      </>)}
 
-      <section>
-        <h2 className="mb-3 text-xl font-bold">Approved trips</h2>
-        {!confirmed?.length ? (
-          <p className="text-muted">No trips approved yet.</p>
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2">
-            {confirmed.map((t) => (
-              <Card key={t.id} className="p-4 sm:p-5">
-                <p className="font-bold">{(t.headline ?? `${t.community}, ${t.trade}`).replace("Recommended trip: ", "")}</p>
-                <p className="text-sm text-muted">{t.trade} · approved {when(t.created_at)}</p>
-                <ul className="mt-3 flex flex-col gap-1 text-sm">
-                  {t.jobs.map((j) => (
-                    <li key={j.request_id} className="flex items-center gap-2">
-                      <TierBadge tier={j.tier} size="sm" />
-                      <Link href={`/coordinator/requests/${j.request_id}`} className="font-mono text-ink hover:underline">{j.request_id}</Link>
-                      <span className="text-muted">{j.community}</span>
-                      {j.eta_hours != null && <span className="ml-auto text-muted">{hoursOrDays(j.eta_hours)}</span>}
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 }

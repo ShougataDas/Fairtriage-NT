@@ -62,17 +62,18 @@ const STAGES = [
   { key: "assessed", label: "Assessed" },
   { key: "approved", label: "Checked by staff" },
   { key: "scheduled", label: "Trip booked" },
+  { key: "completed", label: "Done" },
 ];
 
 function Progress({ status }: { status: string }) {
   const reached =
-    status === "scheduled" ? 3 : status === "approved" ? 2 : ["ranked", "not_in_queue", "needs_phone_call", "awaiting_confirmation"].includes(status) ? 1 : 0;
+    status === "completed" ? 4 : status === "scheduled" ? 3 : status === "approved" ? 2 : ["ranked", "not_in_queue", "needs_phone_call", "awaiting_confirmation"].includes(status) ? 1 : 0;
   return (
     <div className="rounded-2xl border border-line bg-paper p-5 shadow-sm">
       <p className="mb-4 flex items-center gap-2 font-bold">
         <CalendarClock className="size-5 text-ink" aria-hidden /> {statusLabel[status] ?? status}
       </p>
-      <ol className="grid grid-cols-4 gap-2">
+      <ol className="grid grid-cols-5 gap-2">
         {STAGES.map((s, i) => (
           <li key={s.key} className="flex flex-col gap-2">
             <span className={cx("h-2 rounded-full", i <= reached ? "bg-routine" : "bg-line")} aria-hidden />

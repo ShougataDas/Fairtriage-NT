@@ -14,7 +14,7 @@ Built for the CDU IT Code Fair, Trusted AI decision-support challenge.
 ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-database-47A248?logo=mongodb&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-335%20passing-2f6b4f)
+![Tests](https://img.shields.io/badge/tests-361%20passing-2f6b4f)
 
 ---
 
@@ -40,6 +40,10 @@ Built for the CDU IT Code Fair, Trusted AI decision-support challenge.
 - A **trip planner** with a map: routes to remote communities, stops added on
   the way, expected arrival for every tenant, and why each trip is worth
   approving (repairs covered, travel saved, tenants reached sooner).
+- **Approved trips** with live counts (active, completed, cancelled). Cancel an
+  approval or take one job off a trip (with a reason): the jobs go back to the
+  queue as before. Mark a trip completed when the crew is done. Every change
+  is kept in the trip's history.
 - **Fairness measurements** computed from the live queue.
 
 ## Principles
@@ -197,7 +201,7 @@ python scripts/run_scenarios.py
 python scripts/run_eval.py
 ```
 
-The first runs 335 tests on an in-memory database, so no server is needed.
+The first runs 361 tests on an in-memory database, so no server is needed.
 The second runs the 16 demo scenarios in [TEST_CASES.md](TEST_CASES.md). The
 third scores reading against the 12,000-row dataset in `data/`.
 
@@ -224,6 +228,10 @@ JSON endpoints under `/api` (interactive docs at `http://localhost:8000/docs`):
 | GET | `/api/export` | Download `?format=csv\|xlsx&scope=queue\|all` |
 | GET | `/api/trips/preview` | Recommended trips with routes, map coordinates and benefits |
 | POST | `/api/trips/plan` | Approve all trips, or one with `?anchor=<id>` |
+| GET | `/api/trips` | Approved trips with status and history |
+| POST | `/api/trips/{id}/cancel` | Withdraw an approval `{reason}`: jobs return to the queue |
+| POST | `/api/trips/{id}/remove` | Take one job off a trip `{request_id, reason}` |
+| POST | `/api/trips/{id}/complete` | Mark the trip's jobs completed |
 | GET | `/api/metrics/equity` | Fairness measurements |
 | GET | `/api/health` | Service, database and reader status |
 
@@ -247,7 +255,7 @@ frontend/            Next.js web app (presentation only; calls the API)
 config/policy.yaml   Every weight and threshold
 reference/           Communities, road network, crews, road status
 scripts/             Seeding, evaluation, scenario runner, data builders
-tests/               335 tests
+tests/               361 tests
 docs/DESIGN.md       Design notes, test findings, evaluation
 ```
 
