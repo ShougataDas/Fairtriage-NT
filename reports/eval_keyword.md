@@ -8,7 +8,7 @@ Rows scored: 1810 (errors 0). Label sources: {'derived': 1800, 'probe_designed':
 
 | Field | Macro-F1 |
 |---|---|
-| actionability | 0.834 |
+| actionability | 0.835 |
 | endangers_person | 0.963 |
 | essential_service_lost | 0.522 |
 
@@ -33,7 +33,7 @@ Danger precision 0.998, recall 0.900.
 | possible_hazard_unclear | 85 | 100.0% | 100.0% |
 | register_pair | 4 | 100.0% | 100.0% |
 | standard | 797 | 89.1% | 96.0% |
-| typo | 205 | 93.2% | 95.1% |
+| typo | 205 | 93.7% | 95.1% |
 | understated_severity | 2 | 100.0% | 50.0% |
 
 ## Paraphrase invariance

@@ -78,7 +78,12 @@ def _told(f: dict) -> str:
     """What the tenant said, quoted back whole when it is short enough to read,
     so nothing they wrote looks ignored. Long messages show the key phrase."""
     t = (f.get("text_original") or "").strip()
-    return t if t and len(t) <= 300 else f["evidence"]
+    if not t:
+        return f["evidence"]
+    if len(t) <= 600:
+        return t
+    cut = t[:600].rsplit(" ", 1)[0].rstrip(" ,.;:")     # never mid-word
+    return cut + "\u2026"
 
 
 def render_tenant(f: dict) -> str:
@@ -278,7 +283,9 @@ def verify(text: str, f: dict) -> list[str]:
     for n in _NUM.findall(scan):
         if n not in ok:
             problems.append(f"invented number {n}")
-    low = text.lower()
+    # The tenant's own words, quoted back, are theirs: "please fix it as soon
+    # as possible" is not a promise we made. Only OUR sentences are checked.
+    low = re.sub("“[^”]*”", " ", text).lower()
     for b in BANNED:
         if b in low:
             problems.append(f"unsupported promise or apology: {b}")

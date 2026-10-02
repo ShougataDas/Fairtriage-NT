@@ -53,7 +53,8 @@ class ExtractResult:
 
 NEGATORS = r"(?:no|not|isn'?t|aren'?t|never|without|nothing|none)"
 RESOLVED = (r"(?:was fixed|got fixed|been fixed|already fixed|fixed now|fixed last|is fixed|"
-            r"repaired|anymore|any more|no longer|stopped now|all fixed)")
+            r"(?:was|were|been|got|is|are|already|have|has|had) repaired|repaired (?:now|already|last)|"
+            r"anymore|any more|no longer|stopped now|all fixed)")
 
 # (pattern, domain, endangers_person, essential_service_lost)
 DANGER_RULES = [
@@ -207,7 +208,8 @@ FAULT_RULES = [
      r"|\btiles?\b|\bgrout\b|\bpaint\w*|\bplaster\b|\bcarpet\b|\blino\b|\bskirting\b"
      r"|\bhole\b.{0,20}\b(wall|door|floor)\b|\b(wall|door)\b.{0,20}\bhole\b"
      r"|\bmou?ld\w*\b|\bmildew\b"
-     r"|\bfenc\w*|\bclothes ?line\b|\bletter ?box\b|\bcarport\b|\bshed\b|\bgutters?\b|\bantenna\b", "minor"),
+     r"|\bfenc\w*|\bclothes ?line\b|\bletter ?box\b|\bcarport\b|\bshed\b|\bgutters?\b|\bantenna\b"
+     r"|\b(hairline |small |thin )?cracks?\b|\bmesh\b|\b(window |security )?screens?\b.{0,20}\b(rip\w*|torn|hole|broken)\b", "minor"),
     (r"\btoilet\b", "sanitation"), (r"\bsewage|sewer\b", "sanitation"),
     (r"\bblocked\b", "sanitation"),
     # climate before water: "ceiling fan" is a fan, not a roof leak
@@ -215,7 +217,8 @@ FAULT_RULES = [
     (r"\bleak\w*|\bdrip\w*|\bflood\w*|\bburst\b|\bpipe\b|\btaps?\b|\bwater\b"
      r"|\bsinks?\b|\bdrains?\b|\bbasin\b|\btrough\b|\bshower\b", "water"),
     # a ceiling is only a water fault when something wet is happening to it
-    (r"\broof\b|\bceiling\b.{0,30}\b(wet|leak\w*|drip\w*|water|stain\w*|mould|mold)\b", "water"),
+    (r"\broof\b|\bceiling\b.{0,30}\b(wet|leak\w*|drip\w*|water|stain\w*|mould|mold|damp|soak\w*)\b"
+     r"|\brain\w*\b.{0,25}\b(coming|getting|pouring|leaking) (in|into|through)\b|\bdamp patch\b", "water"),
     (r"\bpower|\bsockets?\b|\boutlets?\b|\bplugs?\b|\blights?\b|\bswitch\w*|\belectric", "electrical"),
     # provided appliances
     (r"\b(fridge|freezer|washing machine|dryer|dishwasher|microwave|range ?hood|exhaust fan|smoke alarm)\b", "electrical"),
@@ -225,7 +228,7 @@ FAULT_RULES = [
     (r"\bbroken|not working|won'?t work|doesn'?t work|stopped working|broke", "minor"),
 ]
 
-FAILURE = (r"\b(broke\w*|won'?t|can'?t|cannot|stuck|leak\w*|drip\w*|block\w*|crack\w*|"
+FAILURE = (r"\b(broke\w*|won'?t|can'?t|cannot|stuck|leak\w*|drip\w*|block\w*|crack\w*|rip|ripped|torn|soak\w*|damp|"
            r"loose|fell|off|damaged|missing|jammed|torn|smash\w*|burst|stopped|dead|"
            r"flood\w*|hot|spark\w*)\b")
 FAIL_PHRASES = (r"\b(not|isn'?t|aren'?t) (working|turning|closing|opening|flushing|draining|"
@@ -346,6 +349,14 @@ UNCERTAIN = (r"\b(do ?n[o']?t know|dont know|not sure|unsure|no idea|can(no|')?t
 VAGUE_ONLY = (r"^\W*(the |my |a |our )?(\w+ )?(problem|issue|trouble)\b"
               r"|\b(\w+) (problem|issue|trouble),? (please|pls|plz) (call|ring|contact)\b")
 NO_ISSUE = r"\b(fine|all good|no problem\w*|nothing wrong|looks? (fine|good)|all ok|is ok|are ok|working (fine|well|good))\b"
+# A request for a repair that never says what or where: ask, never dismiss.
+GENERIC_REQUEST = (r"\b(maintenance|repair|service) (request|job|issue|problem)\b"
+                   r"|\brequest(ing)? (a |an |for )?(repair|maintenance|inspection|tradesperson)\b"
+                   r"|\bneeds? (to be )?(checked|repaired|fixed|looked at|inspected|sorted)\b"
+                   r"|\b(an?|the|some) (issue|problem|fault)\b"
+                   r"|\baffect\w* (the )?(normal )?use\b"
+                   r"|\b(please|could you|can you|can someone) (come and )?(fix|repair|inspect|look at|check)\b"
+                   r"|\b(send|arrange) (someone|a tradesperson|maintenance|the maintenance team)\b")
 QUESTION = r"\?|\b(how long|what number|who pays|checking if|just checking|is this|does this app|when will)\b"
 WITHDRAWAL = (r"\b(don'?t worry|never ?mind|forget (about )?it|don'?t send|no longer need|"
               r"not needed|can close|we will manage|we'?ll manage|already sorted|fixed it|"
@@ -504,6 +515,13 @@ class KeywordExtractor:
                 return self._nonrequest(Actionability.FOLLOW_UP, t)
             if re.search(OUT_OF_SCOPE, low):
                 return self._nonrequest(Actionability.OUT_OF_SCOPE, t)
+            if (re.search(GENERIC_REQUEST, low) and not re.search(NO_ISSUE, low)
+                    and not re.search(RESOLVED, low)
+                    # "maintenance request: the toilet flushes normally and is not
+                    # blocked" says nothing is wrong; it is not a request to clarify
+                    and not re.search(rf"\b{NEGATORS}\b", low) and not re.search(WORKING, low)):
+                # "I need a repair" with no what or where: one question, not a refusal
+                return self._unclear(t)
             if (re.search(NO_ISSUE, low) or re.search(rf"\b{NEGATORS}\b", low)
                     or re.search(RESOLVED, low)):
                 return self._nonrequest(Actionability.NO_ISSUE, t)
@@ -598,6 +616,7 @@ Rules:
 - withdrawal: the tenant says not to come or that it is fine now. Do not decide whether it was actually fixed.
 - evidence_phrase: copy the tenant's words VERBATIM. Never paraphrase.
 - confidence "low" when the message is too vague to classify. Do not guess a hazard to fill the field.
+- A message asking for a repair without saying what or where ("I'd like to submit a maintenance request about an issue") is actionability "unclear", never "no_issue": the tenant will be asked one question.
 - whole_dwelling: true when the whole household is exposed to the harm: flooded, roof gone, no power or water to the house, or a gas leak (fumes reach everyone). False for one fixture or one room, and false for a door or lock problem.
 - emergency_000: true when life is at risk right now: fire, flames, explosion, someone electrocuted, injured, unconscious or not breathing, violence or a weapon (someone with a knife, someone being hit or threatened), or someone talking about harming themselves. Hedged wording still counts ("perhaps the gas is on fire"). A fire alarm beeping is not an emergency.
 - Violence, weapons, threats and self-harm are NOT repairs: set actionability "out_of_scope" with emergency_000 true and endangers_person true.

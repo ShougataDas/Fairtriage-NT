@@ -69,6 +69,7 @@ IMMEDIATE = [
 ]
 
 URGENT = [
+    "can someone check this? heavy rain is coming through the ceiling and soaking the room",
     "no water in the house",
     "bore pump stopped working, we have no water",
     "the water tank is empty and nothing comes out of the taps",
@@ -90,6 +91,10 @@ URGENT = [
 
 ROUTINE = [
     "the tap in the kitchen is dripping",
+    # found comparing against the 12,000-message dataset
+    "can someone check this? there is a narrow hairline crack inside",
+    "can someone check this? mesh screen has a small rip",
+    "small ceiling damp patch appears after storms",
     "kitchen cupboard door came off the hinge",
     "flyscreen on the bedroom window has a big hole",
     "cracked tile in the bathroom",

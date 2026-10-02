@@ -246,3 +246,58 @@ def test_a_fall_does_not_jump_the_queue_ahead_of_a_gas_leak():
     q = [r["request_id"] for r in service.queue_view()]
     assert q.index(gas["request_id"]) < q.index(fall["request_id"])
     assert fall["explanation_tenant"].startswith("If anyone is hurt, call 000")
+
+
+
+LONG_GENERIC = ("Hi, I would like to submit a maintenance request regarding an issue that needs to be "
+                "checked and repaired. The problem is affecting the normal use of the area, so I would "
+                "appreciate it if the maintenance team could inspect it and arrange the necessary repair "
+                "as soon as possible. Please let me know if any further information is required. "
+                "Thank you for your assistance.")
+
+
+def test_a_repair_request_without_details_gets_the_question_not_a_refusal():
+    """Regression: "needs to be checked and repaired" read "repaired" as already
+    fixed, and the tenant was told "we did not find a repair to book"."""
+    from fairtriage import service
+    from fairtriage.schemas import LodgeIn
+    r = service.lodge(LodgeIn(text=LONG_GENERIC, community="Palmerston (Zuccoli)"))
+    assert r["status"] == "awaiting_tenant"
+    assert "what is wrong and where" in r["question"]
+    r = service.clarify(r["request_id"], "the kitchen tap is leaking under the sink")
+    assert r["status"] == "ranked" and r["tier"] == "Routine"
+    assert LONG_GENERIC in r["explanation_tenant"]          # quoted whole, not cut mid-word
+
+
+@pytest.mark.parametrize("text", [
+    "I need someone to come and fix something in my house",
+    "please arrange a tradesperson, there is a problem",
+    "maintenance request, thanks",
+    "can you send someone to look at an issue",
+])
+def test_generic_requests_ask_what_and_where(text):
+    from fairtriage.extract import KeywordExtractor
+    assert KeywordExtractor().extract(text).actionability.value == "unclear", text
+
+
+@pytest.mark.parametrize("text, kind", [
+    ("the tap was repaired last week, all good now", "no_issue"),
+    ("thanks, the door has been repaired", "no_issue"),
+    ("no problem here, everything is fine", "no_issue"),
+    ("just checking if this app works?", "question"),
+    # the dataset's "all clear" reports inside request-like wrappers
+    ("maintenance request: the toilet flushes normally and is not blocked", "no_issue"),
+    ("we have a problem in the hallway: there are no exposed wires", "no_issue"),
+    ("maintenance request: there is no gas smell and the stove works normally", "no_issue"),
+])
+def test_resolved_and_non_requests_still_are(text, kind):
+    from fairtriage.extract import KeywordExtractor
+    assert KeywordExtractor().extract(text).actionability.value == kind, text
+
+
+def test_very_long_messages_are_cut_at_a_word():
+    from fairtriage.explain import _told
+    long = ("the kitchen tap drips " * 60).strip()
+    q = _told({"text_original": long, "evidence": "x"})
+    assert q.endswith("\u2026") and len(q) <= 601 and not q[:-1].endswith(" ")
+    assert long.startswith(q[:-1])

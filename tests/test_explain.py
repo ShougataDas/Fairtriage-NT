@@ -41,3 +41,16 @@ def test_digits_in_the_reference_id_are_not_permitted_claims():
     text = a["explanation_tenant"].replace(a["facts"]["request_id"], f["request_id"])
     assert verify(text, f) == []                              # the ID itself is fine
     assert any("37" in p for p in verify(text + " Within 37 hours.", f))
+
+
+def test_tenants_own_words_are_not_checked_as_our_promises():
+    """Regression: a tenant who wrote "as soon as possible" tripped the check
+    that stops US promising it, flagging a correct explanation as failed."""
+    from fairtriage import service
+    from fairtriage.schemas import LodgeIn
+    r = service.lodge(LodgeIn(text="the kitchen tap is leaking, please fix it as soon as possible, sorry",
+                              community="Darwin (Parap)"))
+    assert not any(f["code"] == "explanation_check_failed" for f in r["flags"])
+    from fairtriage.explain import verify
+    facts = {"request_id": "NTF3-00001-abcd", "tier": "Routine"}
+    assert verify("We will fix it as soon as possible. Routine. NTF3-00001-abcd", facts)  # ours: still caught
