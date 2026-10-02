@@ -187,3 +187,45 @@ def test_still_unclear_after_asking_reaches_a_person():
     r = service.clarify(r["request_id"], "i dont know really")
     assert r["status"] == "needs_phone_call"
     assert r["explanation_tenant"].count("You told us:") == 1
+
+
+
+def test_fall_and_roof_leak_are_both_heard():
+    """Regression: "my friend fell from the roof ... the main thing is the roof
+    is now leaking, it's raining" came out Routine, quoting only the fall."""
+    from fairtriage import service
+    from fairtriage.schemas import LodgeIn
+    text = ("my friend Ay fall from the roof , but it's not the main thing , the main thing is "
+            "the roof is now leaking water , cz its raining outside.")
+    r = service.lodge(LodgeIn(text=text, community="Darwin (Brinkin)"))
+    t = r["explanation_tenant"]
+    assert t.startswith("If anyone is hurt, call 000 now for an ambulance")
+    assert "get everyone out" not in t
+    assert r["tier"] == "Immediate"
+    assert text in t                                   # the whole message is quoted back
+    v = service.request_view(r["request_id"])
+    assert "leaking" in v["assessment"]["facts"]["evidence"]   # the repair, not the fall
+
+
+@pytest.mark.parametrize("text", [
+    "the roof is leaking because it is raining",
+    "its raining and the ceiling is leaking in the bedroom",
+])
+def test_roof_leak_in_the_rain_is_not_routine(text):
+    from fairtriage.extract import KeywordExtractor
+    from fairtriage.policy import tier_of
+    assert tier_of(KeywordExtractor().extract(text))[0] in ("Urgent", "Immediate"), text
+
+
+def test_injury_without_a_repair_still_means_000():
+    from fairtriage import service
+    from fairtriage.schemas import LodgeIn
+    r = service.lodge(LodgeIn(text="my dad fell off the ladder and is bleeding", community="Wadeye"))
+    assert r["explanation_tenant"].startswith("If anyone")
+    assert r["status"] == "needs_phone_call" and r["tier"] == "NotInQueue"
+
+
+def test_evidence_prefers_the_clause_where_something_fails():
+    from fairtriage.extract import KeywordExtractor
+    e = KeywordExtractor().extract("we painted the door last week, and now the kitchen tap is leaking")
+    assert "leaking" in e.evidence_phrase

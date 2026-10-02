@@ -6,7 +6,7 @@ import type { Tier } from "@/lib/api";
 import { cx, paragraphs, tierMeaning, tierStyle } from "@/lib/format";
 
 // first lines that mean "call 000 before reading anything else"
-const EMERGENCY = ["If there is a fire, or anyone is hurt, call 000", "If anyone is in danger, call 000"];
+const EMERGENCY = ["If there is a fire, or anyone is hurt, call 000", "If anyone is in danger, call 000", "If anyone is hurt, call 000"];
 const SAFETY = ["If it is safe to do so", "If you can,", "Keep children", "Keep everyone", "Thank you for making it safe"];
 
 type Kind = "wait" | "why" | "safety" | "queue" | "override" | "worse" | "footer" | "other";

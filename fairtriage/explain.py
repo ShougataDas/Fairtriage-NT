@@ -71,6 +71,16 @@ def fact_sheet(*, request_id: str, text_original: str, evidence: str, tier: str,
 
 # ---------------------------------------------------------------------------
 
+FIRE_WORDS = r"\b(fire|flames?|smoke|smoking|explo\w*|blew up|gas|burning)\b"
+
+
+def _told(f: dict) -> str:
+    """What the tenant said, quoted back whole when it is short enough to read,
+    so nothing they wrote looks ignored. Long messages show the key phrase."""
+    t = (f.get("text_original") or "").strip()
+    return t if t and len(t) <= 300 else f["evidence"]
+
+
 def render_tenant(f: dict) -> str:
     L: list[str] = []
     tier = f["tier"]
@@ -87,7 +97,7 @@ def render_tenant(f: dict) -> str:
                          "any time, day or night.")
             L += ["", "This is not something a tradesperson can fix, but a staff member has been "
                   "told straight away and will phone you.", "",
-                  f"You told us: \u201c{f['evidence']}\u201d"]
+                  f"You told us: \u201c{_told(f)}\u201d"]
             if f["clarification"]:
                 q, a = f["clarification"]
                 L.append(f"We asked: \u201c{q}\u201d You said: \u201c{a}\u201d")
@@ -96,7 +106,7 @@ def render_tenant(f: dict) -> str:
         if f["actionability"] == "withdrawal":
             return (
                 "Thanks for letting us know.\n\n"
-                f"You told us: \u201c{f['evidence']}\u201d\n\n"
+                f"You told us: \u201c{_told(f)}\u201d\n\n"
                 "We have not closed your repair. A staff member will contact you to "
                 "check whether it has been fixed or whether you would still like "
                 "someone to come. If it is still a problem, you do not have to wait "
@@ -105,7 +115,7 @@ def render_tenant(f: dict) -> str:
         if f["actionability"] == "unclear":
             L = ["We could not tell from your message what needs fixing, so a staff "
                  "member will phone you to find out.", "",
-                 f"You told us: \u201c{f['evidence']}\u201d"]
+                 f"You told us: \u201c{_told(f)}\u201d"]
             if f["clarification"]:
                 q, a = f["clarification"]
                 L.append(f"We asked: \u201c{q}\u201d You said: \u201c{a}\u201d")
@@ -116,12 +126,20 @@ def render_tenant(f: dict) -> str:
             return "\n".join(L)
         return (
             "We did not find a repair to book from your message.\n\n"
-            f"You told us: \u201c{f['evidence']}\u201d\n\n"
+            f"You told us: \u201c{_told(f)}\u201d\n\n"
             "If something is wrong, tell us what and where, and we will look again.\n\n"
             f"Reference {f['request_id']}.")
 
     w = f["wait"]
-    if f.get("emergency"):
+    said = " ".join([f.get("text_original", "")] + list(f["clarification"] or ())).lower()
+    if f.get("emergency") and not re.search(FIRE_WORDS, said):
+        # someone hurt (a fall, bleeding): an ambulance, not "get out of the house"
+        L.append("If anyone is hurt, call 000 now for an ambulance. Do not wait for us.")
+        L.append("")
+        L.append("Once everyone is safe, a staff member will phone you to arrange "
+                 "the repair.")
+        L.append("")
+    elif f.get("emergency"):
         L.append("If there is a fire, or anyone is hurt, call 000 now and get "
                  "everyone out of the house. Do not wait for us.")
         L.append("")
@@ -148,7 +166,7 @@ def render_tenant(f: dict) -> str:
         L.append("")
     L.append(f"Your repair is in the {tier} group.")
     L.append("")
-    L.append(f"You told us: \u201c{f['evidence']}\u201d")
+    L.append(f"You told us: \u201c{_told(f)}\u201d")
     if f["clarification"]:
         q, a = f["clarification"]
         L.append(f"We asked: \u201c{q}\u201d You said: \u201c{a}\u201d")

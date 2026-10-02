@@ -227,6 +227,7 @@ SEVERE = (r"\b(soaking|soaked|drenched|pouring|gushing)\b"
           r"|\b(large|big|heavy|major|bad)\b.{0,15}\b(leak\w*|drip\w*)\b"
           r"|\bleaking (heavily|badly|a lot)\b|\bwater everywhere\b"
           r"|\bcannot (use|sleep in|stay in) the\b"
+          r"|\b(roof|ceiling)\b.{0,40}\bleak\w*.{0,60}\brain\w*|\brain\w*.{0,60}\b(roof|ceiling)\b.{0,40}\bleak\w*"
           r"|\blocked out\b|\b(can ?not|can'?t) get (in|inside|into the house)\b"
           r"|\bkey\b.{0,15}\b(broke|snapped|stuck)\b.{0,15}\block\b")
 WHOLE_DWELLING = (r"\b(whole|entire|all the|every) (house|home|place|unit|rooms?)\b"
@@ -280,6 +281,18 @@ PERSONAL_DANGER = (
 )
 SELF_HARM = (r"\b(kill(ing)? myself|end(ing)? my life|suicid\w*|want(s)? to die|hurt(ing)? myself|"
              r"harm(ing)? myself|take my (own )?life)\b")
+
+# Someone has been hurt, or may have been: a fall from height, bleeding, a
+# knock to the head. The tenant is told to call 000 for an ambulance, and the
+# rest of the message is still read as a repair ("he fell off the roof, and now
+# the roof leaks" is an injury AND a leak), so neither is lost.
+INJURY = (
+    r"\b(fell|fall|falls|fallen|falling|slipped|slip)\s+(off|from|through|down)\s+(the\s+|a\s+|our\s+)?"
+    r"(roof|ladder|balcony|verandah|veranda|stairs?|steps|deck|tree|window|ceiling)\b"
+    r"|\b(fell|fallen)\b.{0,40}\b(hurt|bleeding|injured|knocked out|broke (his|her|their|my) \w+|can'?t (move|get up|walk))\b"
+    r"|\b(is|are|was|keeps?)\s+(bleeding|unconscious|not moving|knocked out)\b"
+    r"|\bhit (his|her|their|my) head\b|\bbroke (his|her|their|my) (leg|arm|back|neck|hip|wrist|ankle)\b"
+)
 
 # a smoke alarm is not smoke: masked before the danger rules read a clause
 SAFETY_DEVICE = r"\bsmoke (alarms?|detectors?)\b"
@@ -367,9 +380,16 @@ class KeywordExtractor:
                     emergency_000=True, tenant_isolated=False, evidence_phrase=cl[:200],
                     confidence=Confidence.HIGH, missing_decisive_fact=DecisiveFact.NONE)
 
+        injury_clause = None
+        for cl in clauses:
+            c = cl.lower()
+            if any(not _negated(c, m) for m in re.finditer(INJURY, c)) and not _resolved(c):
+                injury_clause = cl
+                break
+
         danger, danger_domain, danger_clause = False, None, None
         essential, ess_domain, ess_clause = False, None, None
-        fault_domain, fault_clause = None, None
+        fault_domain, fault_clause, fault_failing = None, None, False
 
         for cl in clauses:
             c = cl.lower()
@@ -401,9 +421,27 @@ class KeywordExtractor:
                     live = [m for m in re.finditer(pat, c) if not _negated(c, m)]
                     if live and not working_only and not _resolved(c):
                         fault_domain, fault_clause = dom, cl
+                        fault_failing = bool(re.search(FAILURE, c) or re.search(FAIL_PHRASES, c))
+                        break
+            elif not fault_failing and (re.search(FAILURE, c) or re.search(FAIL_PHRASES, c)):
+                # A clause that only MENTIONS part of the house ("fell from the
+                # roof") gives way to one where something is failing ("the roof
+                # is now leaking"): that is the repair the tenant is reporting.
+                for pat, dom in FAULT_RULES:
+                    live = [m for m in re.finditer(pat, c) if not _negated(c, m)]
+                    if live and not _resolved(c):
+                        fault_domain, fault_clause, fault_failing = dom, cl, True
                         break
 
         has_fault = danger or essential or fault_domain is not None
+
+        if injury_clause and not has_fault:
+            return Extraction(
+                actionability=Actionability.OUT_OF_SCOPE, hazard_domain=HazardDomain.NONE,
+                is_active=True, endangers_person=True, essential_service_lost=False,
+                habitability=Habitability.NONE, whole_dwelling=False,
+                emergency_000=True, tenant_isolated=False, evidence_phrase=injury_clause[:200],
+                confidence=Confidence.HIGH, missing_decisive_fact=DecisiveFact.NONE)
 
         # non-requests: only when no fault signal survives negation
         if not has_fault:
@@ -464,7 +502,8 @@ class KeywordExtractor:
             actionability=Actionability.REPAIR,
             hazard_domain=HazardDomain(domain),
             is_active=not re.search(RESOLVED, low),
-            endangers_person=danger,
+            endangers_person=danger or bool(injury_clause),
+            emergency_000=bool(injury_clause),
             essential_service_lost=essential,
             habitability=hab,
             whole_dwelling=bool(re.search(WHOLE_DWELLING, low)) or (danger and domain == "gas"),
