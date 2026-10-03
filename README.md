@@ -14,7 +14,7 @@ Built for the CDU IT Code Fair, Trusted AI decision-support challenge.
 ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-database-47A248?logo=mongodb&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-439%20passing-2f6b4f)
+![Tests](https://img.shields.io/badge/tests-456%20passing-2f6b4f)
 
 ---
 
@@ -203,7 +203,7 @@ python scripts/run_scenarios.py
 python scripts/run_eval.py
 ```
 
-The first runs 439 tests on an in-memory database, so no server is needed.
+The first runs 456 tests on an in-memory database, so no server is needed.
 The second runs the 16 demo scenarios in [TEST_CASES.md](TEST_CASES.md). The
 third scores reading against the 12,000-row dataset in `data/`.
 
@@ -257,7 +257,7 @@ frontend/            Next.js web app (presentation only; calls the API)
 config/policy.yaml   Every weight and threshold
 reference/           Communities, road network, crews, road status
 scripts/             Seeding, evaluation, scenario runner, data builders
-tests/               439 tests
+tests/               456 tests
 docs/DESIGN.md       Design notes, test findings, evaluation
 ```
 

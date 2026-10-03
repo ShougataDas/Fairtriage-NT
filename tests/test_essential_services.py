@@ -101,3 +101,62 @@ def test_other_essentials_lost_are_urgent(text):
 def test_look_alikes_stay_routine(text):
     e = read(text)
     assert tier_of(e)[0] == "Routine", text
+
+
+# Regression: "the power socket has created short circuit. Whole home has power
+# outage" was Urgent, 2 to 3 days. A short circuit is a live fault and a fire
+# risk, like sparking: Immediate. A plain power cut stays Urgent.
+@pytest.mark.parametrize("text", [
+    "the power socket has created short circuit. Whole home has power outage",
+    "there was a short circuit in the kitchen",
+    "power point shorted and now no power anywhere",
+    "the socket blew and tripped the power, nothing works",
+    "the plug went bang and there is no power in the kitchen",
+])
+def test_a_short_circuit_is_electrical_danger(text):
+    from fairtriage.extract import KeywordExtractor
+    e = KeywordExtractor().extract(text)
+    assert e.actionability.value == "repair" and e.endangers_person, text
+
+
+def test_a_short_circuit_report_is_immediate_with_safety_advice():
+    from fairtriage import service
+    from fairtriage.schemas import LodgeIn
+    r = service.lodge(LodgeIn(text="the power socket has created short circuit. Whole home has power outage",
+                              community="Palmerston (Farrar)"))
+    assert r["tier"] == "Immediate"
+    assert "hours" in r["explanation_tenant"].splitlines()[0]
+    assert "meter box" in r["explanation_tenant"]
+
+
+@pytest.mark.parametrize("text, danger", [
+    ("no short circuit, just the light bulb is gone", False),
+    ("the fuse blew and we have no power", False),          # outage, not a live fault
+    ("I am short of money for rent", False),
+])
+def test_short_words_that_are_not_a_short_circuit(text, danger):
+    from fairtriage.extract import KeywordExtractor
+    assert KeywordExtractor().extract(text).endangers_person is danger, text
+
+
+@pytest.mark.parametrize("text", [
+    "nothing electrical works in any room",
+    "none of the lights come on",
+    "none of the power points work",
+    "all the lights are off",
+])
+def test_every_light_or_socket_out_is_a_lost_supply(text):
+    from fairtriage.extract import KeywordExtractor
+    e = KeywordExtractor().extract(text)
+    assert e.actionability.value == "repair" and e.essential_service_lost, text
+
+
+@pytest.mark.parametrize("text, kind", [
+    ("nothing works in the house", "unclear"),        # was dismissed: "works" read as fine
+    ("everything has stopped", "unclear"),
+    ("nothing is wrong, everything works", "no_issue"),
+    ("all the lights are working fine", "no_issue"),
+])
+def test_nothing_works_is_asked_about_not_dismissed(text, kind):
+    from fairtriage.extract import KeywordExtractor
+    assert KeywordExtractor().extract(text).actionability.value == kind, text

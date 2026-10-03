@@ -80,6 +80,12 @@ DANGER_RULES = [
      r"|\bflowing (continuously|non[- ]?stop|and will not stop)\b"
      r"|\bpipe\b.{0,15}\b(split|burst|broke)\b.{0,40}\b(flow\w*|pour\w*|gush\w*|spray\w*)", "water", False),
     (r"\bspark(s|ing|ed)?\b|\bsparkin\b", "electrical", False),
+    # a short circuit is a live fault and a fire risk, not just a power cut:
+    # "the socket has created short circuit", "power point shorted", "socket blew"
+    (r"\bshort(ed|ing)?[- ]?circuit\w*\b|\bshort(ed|ing)? out\b"
+     r"|\b(socket|plug|power ?point|outlet|switch|switch ?board|cord|lead|appliance|wiring)\b"
+     r".{0,30}\b(shorted|shorting|blew|blown|bang\w*|exploded)\b"
+     r"|\b(bang|flash)\b.{0,30}\b(socket|plug|power ?point|outlet|switch ?board)\b", "electrical", False),
     (r"\b(bare|exposed|loose|hanging|dangling)\b.{0,20}\b(wir(e|es|ing)|cables?|leads?)\b"
      r"|\b(wir(e|es|ing)|cables?)\b.{0,25}\b(exposed|showing|hanging|bare|dangling|sticking out)\b", "electrical", False),
     (r"\b(burning|smoke)\b.{0,40}\b(smell|switch|wall|socket|plug|power)|\bsmoke smell\b", "electrical", False),
@@ -182,7 +188,8 @@ ESSENTIAL_RULES = [
      r"|\bwhole house\b.{0,20}\bpower\b"
      r"|\b(safety switch|main switch|breaker|circuit breaker|rcd|trip switch)\b.{0,30}"
      r"\b(trip\w*|keeps? (going|turning) off|won'?t (reset|stay on)|will not (reset|stay on))\b"
-     r"|\beverything (electrical|electric)\b.{0,20}\b(stopped|off|not working|dead)\b", "electrical", True),
+     r"|\beverything (electrical|electric)\b.{0,20}\b(stopped|off|not working|dead)\b"
+     r"|\bnothing (electrical|electric)\b.{0,15}\b(works?|working|is on|comes? on|turns? on|running)\b", "electrical", True),
     (r"\bno hot water\b|\bhot water\b.{0,20}\b(not working|no working|not work|no work|broken|broke|stopped|cold|dead|failed|gone)\b"
      r"|\bonly cold water\b|\bcold (water|showers?) only\b|\bshowers? (only )?(runs?|is|are) (only )?cold\b"
      r"|\b(hot water (system|unit|service|tank)|water heater|hws)\b.{0,25}"
@@ -318,6 +325,7 @@ ELEC_ITEMS = (r"\b(lights?|fans?|fridges?|freezers?|tv|television|aircon|air ?co
               r"power ?points?|sockets?|kettles?|microwaves?|washing machine|oven|stove|cooktop)\b")
 OUTAGE = (r"\b(nothing|none|all|everything)\b.{0,40}\b(running|working|works|work|on|off|out|stopped|dead)\b"
           r"|\b(not|no|nothing) (work\w*|running|turn\w* on|comes? on|coming on)\b"
+          r"|\bnone of (the |them|it)\w*\b.{0,15}\b(work\w*|running|turn\w* on|comes? on|are on)\b"
           r"|\b(stopped|dead|went out|gone off|won'?t (turn|come) on|cant turn on|can'?t turn on|all off|is off|are off)\b")
 QUANTIFIER = r"\b(nothing|none of|all|everything)\b"
 
@@ -332,6 +340,11 @@ def _power_lost(low: str) -> bool:
     for m in re.finditer(ELEC_ITEMS, low):
         w = m.group(1).replace(" ", "")
         items.add(w[:-1] if w.endswith("s") and not w.endswith("ss") else w)
+    # every light, or every power point, out is the supply, not one fitting
+    if (re.search(r"\b(none of|all) (the |our |my )?(lights|power ?points|sockets)\b", low)
+            and re.search(OUTAGE, low)
+            and re.search(r"\b(none|not|no|nothing|off|out|dead|stopped|won'?t|can'?t)\b", low)):
+        return True
     if len(items) < 2 or not re.search(OUTAGE, low):
         return False
     return len(items) >= 3 or "light" in items or bool(re.search(QUANTIFIER, low))
@@ -349,6 +362,11 @@ UNCERTAIN = (r"\b(do ?n[o']?t know|dont know|not sure|unsure|no idea|can(no|')?t
 VAGUE_ONLY = (r"^\W*(the |my |a |our )?(\w+ )?(problem|issue|trouble)\b"
               r"|\b(\w+) (problem|issue|trouble),? (please|pls|plz) (call|ring|contact)\b")
 NO_ISSUE = r"\b(fine|all good|no problem\w*|nothing wrong|looks? (fine|good)|all ok|is ok|are ok|working (fine|well|good))\b"
+# "Nothing works" is a fault without a what or where, not "all fine": the
+# word "works" must not read it as working. Ask.
+NOTHING_WORKS = (r"\b(nothing|none of (it|them|the \w+))\b( \w+)?( is| are)? "
+                 r"(works?|working|turns? on|comes? on|running|runs)\b"
+                 r"|\beverything (has )?(stopped|died|is dead|is broken)\b")
 # A request for a repair that never says what or where: ask, never dismiss.
 GENERIC_REQUEST = (r"\b(maintenance|repair|service) (request|job|issue|problem)\b"
                    r"|\brequest(ing)? (a |an |for )?(repair|maintenance|inspection|tradesperson)\b"
@@ -515,6 +533,8 @@ class KeywordExtractor:
                 return self._nonrequest(Actionability.FOLLOW_UP, t)
             if re.search(OUT_OF_SCOPE, low):
                 return self._nonrequest(Actionability.OUT_OF_SCOPE, t)
+            if re.search(NOTHING_WORKS, low) and not re.search(RESOLVED, low):
+                return self._unclear(t)
             if (re.search(GENERIC_REQUEST, low) and not re.search(NO_ISSUE, low)
                     and not re.search(RESOLVED, low)
                     # "maintenance request: the toilet flushes normally and is not
