@@ -5,7 +5,7 @@
 # model. Change a value -> bump `version` -> old recommendations remain
 # explainable because each assessment stores the version that produced it.
 
-version: "policy-2026.09-v7"
+version: "policy-2026.10-v8"
 
 # ---------------------------------------------------------------------------
 # Tier ladder. Lexicographic and non-compensatory: nothing in a lower tier can
@@ -76,11 +76,47 @@ wait:
   # is programmed into the week, not dispatched on the day; without this a
   # quiet queue showed routine jobs as "within a day". PLACEHOLDER values:
   # replace with the department's real booking times.
-  lead_days: {Immediate: 0.1, Urgent: 1.0, Routine: 5.0}
-  mean_job_days: 0.5
+  # v8: Routine 5 -> 3. At 5 the booking time was most of every routine
+  # estimate, so rank and location barely showed; the queue now carries that.
+  lead_days: {Immediate: 0.1, Urgent: 1.0, Routine: 3.0}
+  # no estimate is shorter than this, even for a job that has already waited
+  # past its booking time: non-urgent work is still booked into a working day
+  floor_days: {Immediate: 0.1, Urgent: 0.5, Routine: 1.0}
   road_penalty_days: {open: 0, restricted: 2, closed: 7}
   scheduled_trip_discount_days: 3
-  range_spread: 0.25            # show +/- 25% as a range, never a date
+
+  # v8: the queue is the on-site hours of the SAME trade's work ranked ahead
+  # in the same region, divided by that trade's crew hours per day
+  # (crews x share x trips.capacity_hours_per_day). A plumbing job does not
+  # wait behind an electrician's. PLACEHOLDER shares: replace with the real
+  # make-up of each region's crews.
+  trade_share:
+    Plumber: 0.30
+    Electrician: 0.25
+    Builder: 0.15
+    Handyperson: 0.15
+    Locksmith: 0.05
+    Gas Fitter: 0.05
+    Pest Control: 0.05
+  trade_share_default: 0.15
+  min_trade_crews: 1            # a contractor can always be called in
+
+  # v8: days to get a crew moving to a remote community before it travels:
+  # booking a charter or barge, packing parts. PLACEHOLDER values.
+  mobilise_days:
+    air_or_barge: {Immediate: 0.25, Urgent: 1.0, Routine: 1.0}
+    remote_road:  {Immediate: 0.1,  Urgent: 0.5, Routine: 0.0}
+
+  # v8: the range (never a date) widens where the estimate is less certain,
+  # instead of a flat +/- 25%. Fractions of the central estimate, added up.
+  spread:
+    base: 0.15
+    remote: 0.10
+    restricted: 0.15            # road status
+    closed: 0.25
+    long_queue: 0.10            # a day or more of work ahead
+    max: 0.50
+    trip_max: 0.15              # a remote routine job waiting for the planner's next trip
 
 # ---------------------------------------------------------------------------
 # Scheduling loop

@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
-import { ArrowRight, CalendarClock, CircleCheck, Truck } from "lucide-react";
+import { ArrowRight, CalendarClock, CircleCheck, Clock, Truck } from "lucide-react";
 import { fetcher, post, type RequestView } from "@/lib/api";
-import { cx, statusLabel, when } from "@/lib/format";
+import { cx, day, statusLabel, when } from "@/lib/format";
 import { Docket } from "@/components/Docket";
 import { Button, ButtonLink, Empty, ErrorBox, Spinner, inputClass } from "@/components/ui";
 
@@ -48,10 +48,29 @@ export default function TrackRecord() {
         </div>
       )}
 
+      {data.wait_now && !data.wait_now.on_trip && !data.trip && (
+        <div role="status" className="flex items-start gap-3 rounded-2xl border border-line bg-paper p-5 shadow-sm">
+          <Clock className="mt-0.5 size-6 shrink-0 text-ink" aria-hidden />
+          <div>
+            <p className="font-bold">Latest estimate</p>
+            <p className="text-lg">
+              Expect a tradesperson <strong>{data.wait_now.range_text}</strong>.
+            </p>
+            <p className="mt-1 text-sm text-muted">
+              Worked out again from today&apos;s list of repairs. It changes as repairs ahead of yours are done, or
+              if a more dangerous one comes in.
+            </p>
+          </div>
+        </div>
+      )}
+
       {data.status === "awaiting_tenant" && data.question && <AnswerCard id={data.request_id} question={data.question} onDone={() => mutate()} />}
 
       {a && data.status !== "awaiting_tenant" && (
-        <Docket requestId={data.request_id} tier={a.tier} explanation={a.explanation_tenant} address={data.address} community={data.community} />
+        <Docket
+          requestId={data.request_id} tier={a.tier} explanation={a.explanation_tenant} address={data.address} community={data.community}
+          toldOn={data.wait_now ? day(a.created_at) : undefined}
+        />
       )}
     </div>
   );

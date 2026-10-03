@@ -19,6 +19,16 @@ export interface WaitFacts {
   ratio: number;
 }
 
+/** The wait from now, recomputed from today's queue (counts down as the job waits). */
+export interface WaitNow {
+  low: number;
+  high: number;
+  central: number;
+  range_text: string;
+  on_trip: boolean;
+  days_open: number;
+}
+
 export interface Reachability {
   community: string;
   remote: boolean;
@@ -72,6 +82,7 @@ export interface RequestView {
   prior_deferrals: number;
   advanced_by: string | null;
   trip: TripInfo | null;
+  wait_now: WaitNow | null;
   assessment: null | {
     tier: Tier;
     need: number;
@@ -117,6 +128,10 @@ export interface QueueRow {
   reachability: Partial<Reachability>;
   wait_low: number | null;
   wait_high: number | null;
+  wait_text: string | null;
+  wait_on_trip: boolean;
+  told_low: number | null;
+  told_high: number | null;
   wait_darwin: number | null;
   days_open: number;
   target_days: number;

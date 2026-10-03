@@ -23,10 +23,10 @@ from .config import policy
 from . import db
 from .db import ASSESSMENTS, DECISIONS, EXTRACTIONS, REQUESTS, now
 from .explain import fact_sheet, render_coordinator, render_tenant, verify
-from .queue import position
+from .queue import job_trade, open_jobs, position
 from .reference import area_of, communities
 from .schemas import DecisionIn, Extraction, LodgeIn
-from .wait import estimate, reachability
+from .wait import estimate, fmt_range, plural_days, reachability
 
 log = structlog.get_logger()
 
@@ -123,16 +123,17 @@ def finalise(rid: str, st: dict, override: dict | None = None) -> dict:
         flags.append({"code": "repeat_deferral", "detail": f"deferred {deferrals} times",
                       "action": "equity alert", "audience": "coordinator"})
 
-    pos = position(rid, tier, need, lodged_at, community)
+    trade = ex.trade or "Handyperson"
+    pos = position(rid, tier, need, lodged_at, community, trade=trade)
     reach = reachability(community, trip_scheduled=False) if tier != "NotInQueue" else None
     trip_wait = None
     if pos and tier == "Routine":
         from .scheduler import next_trip_days
         c = communities()[community]
         target = policy()["service_targets_days"][tier]["remote" if c.remote else "urban"]
-        trip_wait = next_trip_days(community, ex.trade or "Handyperson", tier, target, exclude=rid)
-    wait = (estimate(community, tier, pos.jobs_ahead_region, pos.jobs_ahead_darwin,
-                     trip_wait_days=trip_wait) if pos else None)
+        trip_wait = next_trip_days(community, trade, tier, target, exclude=rid)
+    wait = (estimate(community, tier, pos.hours_ahead, pos.hours_ahead_darwin, trade=trade,
+                     trip_wait_days=trip_wait, jobs_ahead=pos.jobs_ahead_trade) if pos else None)
 
     from .policy import Component
     comps = [Component(**c) for c in st.get("components", [])]
@@ -231,12 +232,49 @@ def _days_since(iso: str) -> float:
     return round((datetime.now(timezone.utc) - t).total_seconds() / 86400, 1)
 
 
+def live_wait(req: dict, jobs=None) -> dict | None:
+    """The wait from NOW for an open request, recomputed from today's queue.
+
+    The estimate stored with the assessment is what the tenant was told on the
+    day; this one counts down as the job waits, and moves when jobs ahead are
+    finished or a more urgent one arrives. A job on a confirmed trip uses the
+    trip's arrival instead."""
+    a = req.get("assessment")
+    if not a or req.get("status") not in ("ranked", "approved") or a["tier"] == "NotInQueue":
+        return None
+    community = req["dwelling"]["community"]
+    days_open = _days_since(req["lodged_at"])
+    if req.get("trip_id") and req.get("eta_at"):
+        left = max((datetime.fromisoformat(req["eta_at"]) - datetime.now(timezone.utc))
+                   .total_seconds() / 86400, 0.0)
+        return {"low": round(left, 1), "high": round(left, 1), "central": round(left, 1),
+                "range_text": ("within a day" if left < 1 else
+                               f"in about {plural_days(max(int(round(left)), 1))}"),
+                "on_trip": True, "days_open": days_open, "breakdown": None}
+    trade, _ = job_trade(req)
+    pos = position(req["_id"], a["tier"], a["need_score"], req["lodged_at"], community,
+                   trade=trade, jobs=jobs)
+    if pos is None:
+        return None
+    told = ((a.get("facts") or {}).get("wait") or {}).get("breakdown") or {}
+    trip_wait = told.get("trip_wait_days")
+    if trip_wait is not None:
+        trip_wait = max(trip_wait - days_open, 0.0)
+    w = estimate(community, a["tier"], pos.hours_ahead, pos.hours_ahead_darwin, trade=trade,
+                 trip_wait_days=trip_wait, elapsed_days=days_open,
+                 jobs_ahead=pos.jobs_ahead_trade)
+    return {"low": round(w.low, 1), "high": round(w.high, 1), "central": round(w.central, 1),
+            "range_text": fmt_range(w), "on_trip": False, "days_open": days_open,
+            "breakdown": w.breakdown}
+
+
 def request_view(request_id: str) -> dict:
     req = db.get_request(request_id)
     if req is None:
         raise NotFound(request_id)
     dw, a = req["dwelling"], req.get("assessment")
     return {
+        "wait_now": live_wait(req),
         "request_id": req["_id"], "status": req["status"], "lodged_at": req["lodged_at"],
         "text_original": req["text_original"], "text_normalised": req.get("text_normalised"),
         "community": dw["community"], "address": dw.get("address"), "phone": dw.get("phone"),
@@ -277,6 +315,7 @@ def queue_view(tier: str | None = None, community: str | None = None) -> list[di
     from .policy import sort_key
     targets = policy()["service_targets_days"]
     out = []
+    jobs = open_jobs()                      # loaded once: every row's live wait uses it
     for req in db.open_requests():
         a, dw = req["assessment"], req["dwelling"]
         if tier and a["tier"] != tier:
@@ -288,6 +327,7 @@ def queue_view(tier: str | None = None, community: str | None = None) -> list[di
         target = targets[a["tier"]]["remote" if c.remote else "urban"]
         urban_target = targets[a["tier"]]["urban"]
         facts = a.get("facts") or {}
+        now_w = live_wait(req, jobs)
         out.append({
             "request_id": req["_id"], "tier": a["tier"], "need": a["need_score"],
             "community": dw["community"], "area": area_of(dw["community"]),
@@ -297,7 +337,13 @@ def queue_view(tier: str | None = None, community: str | None = None) -> list[di
             "evidence": facts.get("evidence", ""),
             "trade": Extraction.model_validate(req["extraction"]).trade if req.get("extraction") else "",
             "reachability": a.get("reachability") or {},
-            "wait_low": a.get("wait_days_low"), "wait_high": a.get("wait_days_high"),
+            # live: from today's queue, counting down (what the tenant was told
+            # on the day stays in told_low/told_high)
+            "wait_low": now_w["low"] if now_w else a.get("wait_days_low"),
+            "wait_high": now_w["high"] if now_w else a.get("wait_days_high"),
+            "wait_text": now_w["range_text"] if now_w else None,
+            "wait_on_trip": bool(now_w and now_w["on_trip"]),
+            "told_low": a.get("wait_days_low"), "told_high": a.get("wait_days_high"),
             "wait_darwin": a.get("wait_days_darwin"), "days_open": days_open,
             "target_days": target, "pct_of_target": round(100 * days_open / target) if target else 0,
             "pct_of_urban_target": round(100 * days_open / urban_target) if urban_target else 0,

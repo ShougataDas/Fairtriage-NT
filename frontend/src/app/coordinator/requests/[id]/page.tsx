@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import useSWR from "swr";
 import { ArrowLeft, CircleCheck, Flag, Gauge, MapPin, Truck } from "lucide-react";
 import { fetcher, post, type RequestView, type Tier } from "@/lib/api";
-import { TIERS, cx, humanise, readerName, statusLabel, when } from "@/lib/format";
+import { TIERS, cx, day, humanise, readerName, statusLabel, when } from "@/lib/format";
 import { Docket } from "@/components/Docket";
 import { Button, Card, CardTitle, ErrorBox, Pill, Spinner, TierBadge, inputClass } from "@/components/ui";
 
@@ -96,9 +96,15 @@ export default function RequestDetail() {
                 <Stat label="Road distance (est.)" value={`${a.reachability.road_km_est.toFixed(0)} km`} />
                 <Stat label="Road" value={a.reachability.road_status} />
               </dl>
-              {f.wait && (
+              {r.wait_now && (
                 <p className="mt-4">
-                  Expected wait <strong>{f.wait.range_text}</strong>. The same job in Darwin: about {f.wait.darwin} days
+                  Expected from today <strong>{r.wait_now.range_text}</strong>
+                  {f.wait && <> (told on the day: {f.wait.range_text})</>}. Recalculated from the current queue.
+                </p>
+              )}
+              {f.wait && (
+                <p className="mt-2">
+                  When reported: <strong>{f.wait.range_text}</strong>. The same job in Darwin: about {f.wait.darwin} days
                   {f.wait.gap_days > 0 && <> (gap {f.wait.gap_days} days, from travel, roads and crew numbers)</>}.
                 </p>
               )}
@@ -180,7 +186,10 @@ export default function RequestDetail() {
             <div>
               <h2 className="mb-2 font-bold">What the tenant sees</h2>
               <div className="max-h-[32rem] overflow-auto rounded-2xl text-[15px]">
-                <Docket requestId={r.request_id} tier={a.tier} explanation={a.explanation_tenant} address={r.address} community={r.community} />
+                <Docket
+                  requestId={r.request_id} tier={a.tier} explanation={a.explanation_tenant} address={r.address} community={r.community}
+                  toldOn={r.wait_now ? day(a.created_at) : undefined}
+                />
               </div>
             </div>
           )}

@@ -275,7 +275,12 @@ function QueueTable({ rows, order }: { rows: QueueRow[]; order: Order }) {
               <td className="px-4 py-3 align-top">
                 {r.wait_low != null ? (
                   <>
-                    <p>{r.wait_low === r.wait_high ? `about ${days(r.wait_low)}` : `${r.wait_low}–${r.wait_high} days`}</p>
+                    <p>
+                      {r.wait_text
+                        ? r.wait_text.charAt(0).toUpperCase() + r.wait_text.slice(1)
+                        : r.wait_low === r.wait_high ? `about ${days(r.wait_low)}` : `${r.wait_low}–${r.wait_high} days`}
+                    </p>
+                    {r.wait_on_trip && <p className="text-xs font-bold text-routine">On a booked trip</p>}
                     {r.remote && r.wait_darwin != null && <p className="text-xs text-muted">Darwin: {r.wait_darwin} days</p>}
                   </>
                 ) : "—"}

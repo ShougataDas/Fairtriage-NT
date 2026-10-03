@@ -54,7 +54,7 @@ def fact_sheet(*, request_id: str, text_original: str, evidence: str, tier: str,
                        for c in components],
         "wait": None if wait is None else {
             "low": wait.low, "high": wait.high, "central": wait.central,
-            "high_hours": wait.high_hours,
+            "high_hours": wait.high_hours, "low_hours": wait.low_hours,
             "darwin": wait.darwin_central, "range_text": fmt_range(wait),
             "gap_days": wait.gap_days, "ratio": wait.ratio,
             "breakdown": wait.breakdown},

@@ -28,8 +28,13 @@ function kindOf(line: string): Kind {
  * in bold, because it is what a tenant most wants to know.
  */
 export function Docket({
-  requestId, tier, explanation, address, community,
-}: { requestId: string; tier: Tier; explanation: string; address?: string | null; community?: string }) {
+  requestId, tier, explanation, address, community, toldOn,
+}: {
+  requestId: string; tier: Tier; explanation: string; address?: string | null; community?: string;
+  /** Shown later (tracking): the record is what was said on this day, and a
+   * live estimate sits above it, so it must not read as today's wait. */
+  toldOn?: string;
+}) {
   const paras = paragraphs(explanation);
   const emergency = EMERGENCY.some((e) => paras[0]?.[0]?.startsWith(e));
   const rest = emergency ? paras.slice(1) : paras;
@@ -59,7 +64,8 @@ export function Docket({
       <header className={cx("px-5 pb-6 pt-6 sm:px-7", s.soft)}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted">
-            <Clock className="size-4" aria-hidden /> {tier === "NotInQueue" ? "Your report" : "When to expect someone"}
+            <Clock className="size-4" aria-hidden />{" "}
+            {tier === "NotInQueue" ? "Your report" : toldOn ? `What we told you on ${toldOn}` : "When to expect someone"}
           </span>
           <span className={cx("inline-flex items-center gap-1.5 rounded-full bg-paper px-3 py-1 text-sm font-bold ring-1 ring-inset", s.text, s.ring)}>
             <span className={cx("size-2 rounded-full", s.dot)} aria-hidden />
@@ -67,7 +73,7 @@ export function Docket({
           </span>
         </div>
         {headline && (
-          <p className="mt-3 text-2xl font-bold leading-tight text-graphite sm:text-3xl">
+          <p className={cx("mt-3 font-bold leading-tight text-graphite", toldOn ? "text-xl" : "text-2xl sm:text-3xl")}>
             <strong>{headline}</strong>
           </p>
         )}

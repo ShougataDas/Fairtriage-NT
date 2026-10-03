@@ -14,7 +14,7 @@ Built for the CDU IT Code Fair, Trusted AI decision-support challenge.
 ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-database-47A248?logo=mongodb&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-423%20passing-2f6b4f)
+![Tests](https://img.shields.io/badge/tests-431%20passing-2f6b4f)
 
 ---
 
@@ -87,8 +87,10 @@ flowchart LR
 - **Ranking.** A strict tier ladder (Immediate, then Urgent, then Routine),
   then a need score within the tier from habitability, extent, containment
   and vulnerability.
-- **Waiting.** Booking lead time, plus jobs ahead divided by crews, plus
-  travel by the fastest route. Remote routine jobs wait for the next trip.
+- **Waiting.** Booking lead time, plus the hours of same-trade work ranked
+  ahead in the region divided by that trade's crews, plus mobilisation and
+  travel to remote communities. Remote routine jobs wait for the next trip.
+  Recalculated live, so the queue and the tenant's page count down.
 - **Trips.** The fastest route and slower alternatives over an NT road network
   (closed roads removed, restricted roads slowed). Jobs on the way are added
   in need order, never quickest first, only while nobody is made to wait
@@ -201,7 +203,7 @@ python scripts/run_scenarios.py
 python scripts/run_eval.py
 ```
 
-The first runs 423 tests on an in-memory database, so no server is needed.
+The first runs 431 tests on an in-memory database, so no server is needed.
 The second runs the 16 demo scenarios in [TEST_CASES.md](TEST_CASES.md). The
 third scores reading against the 12,000-row dataset in `data/`.
 
@@ -255,7 +257,7 @@ frontend/            Next.js web app (presentation only; calls the API)
 config/policy.yaml   Every weight and threshold
 reference/           Communities, road network, crews, road status
 scripts/             Seeding, evaluation, scenario runner, data builders
-tests/               423 tests
+tests/               431 tests
 docs/DESIGN.md       Design notes, test findings, evaluation
 ```
 
@@ -292,7 +294,8 @@ web app, tests and dataset out of the backend bundle.
 
 ## Limitations
 
-- **Placeholder data:** crew numbers, booking lead times and community
+- **Placeholder data:** crew numbers and their split by trade, booking lead
+  times, mobilisation times and community
   coordinates are placeholders; road distances and speeds are approximate.
   Remote service targets are unverified (see `config/policy.yaml`).
 - **No sign-in yet:** anyone who can reach the staff pages can act on them.

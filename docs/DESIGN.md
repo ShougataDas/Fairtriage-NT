@@ -83,11 +83,30 @@ phone-call list as "unclear".
 
 ## How the wait is estimated
 
-    lead time for the tier  +  jobs ahead / crews  +  travel by the fastest route
+    lead time for the tier
+      + hours of the same trade's work ranked ahead in the region
+        / (that trade's crews x on-site hours per day)
+      + mobilisation for a remote community (charter, barge, packing)
+      + travel by the fastest route
 
 Lead times (`wait.lead_days` in the policy: Immediate 0.1, Urgent 1, Routine
-5 days) are placeholders for the department's real booking times; without
-them a quiet queue showed routine jobs as "within a day". Travel uses the trip
+3 days) are placeholders for the department's real booking times; without
+them a quiet queue showed routine jobs as "within a day". Policy v8 changed
+the queue term: it used to be jobs ahead / all crews x half a day, which
+barely moved the lead time, so every Immediate, Urgent and Routine job showed
+nearly the same wait. Now a plumbing job waits behind plumbing work, not an
+electrician's (`wait.trade_share` splits each region's crews by trade), a
+four-hour structural job counts for more than a one-hour lock change, and
+air- or barge-only communities add `wait.mobilise_days`. The range widens
+with uncertainty (`wait.spread`: remote, road status, a long queue) instead
+of a flat 25%.
+
+The estimate is also **live**. The one stored with the assessment is what the
+tenant was told on the day; the queue screen and the tenant's tracking page
+recompute it from today's queue, using up the booking time first, so it
+counts down while the job waits and moves when work ahead is finished or a
+more dangerous job arrives. `wait.floor_days` stops an overdue routine job
+being shown as "within hours". Travel uses the trip
 planner's own fastest route, so a closed road means the charter the planner
 would send, not a week's delay. A **remote routine** job waits for the next
 trip to its community, worked out with the planner's rule: now, if an urgent
@@ -201,8 +220,8 @@ The planner never changes a tier, a need score or a rank. Every weight is in
 
 **Limits:** road kilometres and speeds are approximate; stops are planned on
 the way out, not on the way back; crews are interchangeable within a region;
-the wait shown at lodgement still uses the simpler estimate until a trip is
-confirmed.
+the wait is estimated from the queue until a trip is confirmed, and then
+from the trip's arrival time.
 
 ## Results so far
 
