@@ -225,6 +225,8 @@ export interface TripPlan {
   anchor: string;
   start: string;
   crew: number;
+  crew_region: string;
+  crew_note: string;
   start_offset_h: number;
   headline: string;
   explanation: string;

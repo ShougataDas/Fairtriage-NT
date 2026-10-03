@@ -127,6 +127,16 @@ that is up to 75 days against a 25-day target; the estimate shows it rather
 than hide it. Lowering that multiple is the lever, and a decision for the
 department.
 
+## Which crew goes
+
+The crew that reaches the destination soonest, from any depot: when it
+is free plus the fastest route from where it is. The home region's crew
+keeps the job unless another arrives more than
+`trips.home_crew_preference_hours` (0.5) sooner. Wadeye is in the Katherine
+region, but with its road out the Katherine crew would drive three hours to
+Darwin for the charter a Darwin crew takes straight away. Arrival time only,
+never cost. The wait estimate uses the same nearest depot.
+
 ## How a trip's cost is estimated
 
 `fairtriage/cost.py` gives each recommended trip a [low, high] cost in AUD

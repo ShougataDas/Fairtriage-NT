@@ -144,7 +144,10 @@ def estimate(community: str, tier: str, hours_ahead: float, hours_ahead_darwin: 
     # means the charter it would actually use. Immediate work runs on clock
     # hours; everything else on crew working days.
     from .routing import travel_hours
-    hours = travel_hours(trade_capacity()[region]["depot"], community)
+    # from whichever depot reaches it soonest: the planner sends that crew
+    reach = [h for h in (travel_hours(c["depot"], community) for c in trade_capacity().values())
+             if h is not None]
+    hours = min(reach) if reach else None
     if hours is None:                       # unreachable: fall back to the old estimate
         travel, penalty = travel_days(community), w["road_penalty_days"][road]
     else:

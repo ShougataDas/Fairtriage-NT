@@ -140,6 +140,9 @@ trips:
   # v8: a non-remote community within this drive of its depot is served by the
   # daily crews, not by planned trips (Humpty Doo, Batchelor, Pine Creek)
   daily_reach_hours: 1.5
+  # v10: the crew that arrives soonest goes, from any depot; the home region's
+  # crew keeps the job unless another arrives more than this much sooner
+  home_crew_preference_hours: 0.5
   match_trade: true             # a stop must need the trade the trip carries
   stops_include_urban: false    # Darwin suburbs have their own daily crews
 

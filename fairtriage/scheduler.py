@@ -181,6 +181,8 @@ class TripPlan:
     target_missed: bool = False
     shortened_for: str = ""
     finish_h: float = 0.0
+    crew_region: str = ""        # whose crew goes: the soonest to arrive, not always the home region
+    crew_note: str = ""          # why, when it is not the home region's crew
 
     @property
     def batched(self) -> list[tuple[Job, str, float]]:
@@ -524,14 +526,15 @@ def _build(jobs: list[Job], anchors, locations: dict[str, str],
         anchor, trigger, detail = queue.pop(0)
         if anchor.request_id in taken:
             continue
-        region = anchor.trade_region
+        region, crew, why = _pick_crew(anchor, free, locations)
         crews = free[region]
-        crew = min(range(len(crews)), key=lambda i: crews[i])
         start = locations[region]
         pool = [j for j in jobs if j.request_id not in taken and j is not anchor]
         tp = plan_trip(anchor, pool, start, crews[crew], trigger, detail,
                        force_fastest=shorten.get(anchor.request_id, ""), G=G)
-        tp.crew = crew
+        tp.crew, tp.crew_region, tp.crew_note = crew, region, why
+        if why:
+            tp.explanation = f"{why} {tp.explanation}"
         if tp.reachable:
             back = candidate_routes(anchor.community, start, G)
             crews[crew] = tp.finish_h + (back[0].hours if back else 0.0)
@@ -547,6 +550,34 @@ def _build(jobs: list[Job], anchors, locations: dict[str, str],
             queue = [(j, "urgent_anchor", f"{j.tier} job left off a full trip gets its own")
                      for j in waiting]
     return plans
+
+
+def _pick_crew(anchor: Job, free: dict[str, list[float]],
+               locations: dict[str, str]) -> tuple[str, int, str]:
+    """The crew that reaches the destination soonest: when it is free plus the
+    fastest route from where it is. The home region's crew keeps the job unless
+    another is more than `home_crew_preference_hours` sooner. Arrival time
+    only, never cost: Wadeye is in the Katherine region, but with its road out
+    the Katherine crew would drive three hours to Darwin to catch the charter
+    a Darwin crew can take straight away."""
+    home = anchor.trade_region
+    bias = _cfg().get("home_crew_preference_hours", 0.5)
+    arrive: dict[str, tuple[float, int]] = {}
+    for region, crews in free.items():
+        f = fastest(locations[region], anchor.community)
+        if not f:
+            continue
+        i = min(range(len(crews)), key=lambda k: crews[k])
+        arrive[region] = (crews[i] + f[0], i)
+    if not arrive:
+        r = home if home in free else next(iter(free))
+        return r, min(range(len(free[r])), key=lambda k: free[r][k]), ""
+    best = min(arrive, key=lambda r: arrive[r][0] - (bias if r == home else 0.0))
+    if best == home or home not in arrive:
+        return best, arrive[best][1], ""
+    gain = arrive[home][0] - arrive[best][0]
+    return best, arrive[best][1], (f"A {best} crew is sent: it reaches {anchor.community} "
+                                   f"{fmt_hours(gain)} sooner than the {home} crew.")
 
 
 def plan(commit: bool = True, only: str | None = None) -> list[TripPlan]:
@@ -687,7 +718,8 @@ def to_dict(tp: TripPlan) -> dict:
     return {
         "id": tp.id, "community": tp.community, "trigger": tp.trigger,
         "trigger_detail": tp.trigger_detail, "trade": tp.trade, "anchor": tp.anchor.request_id,
-        "start": tp.start, "crew": tp.crew + 1, "start_offset_h": tp.start_offset_h,
+        "start": tp.start, "crew": tp.crew + 1, "crew_region": tp.crew_region or tp.anchor.trade_region,
+        "crew_note": tp.crew_note, "start_offset_h": tp.start_offset_h,
         "headline": tp.headline, "explanation": tp.explanation,
         "target_missed": tp.target_missed, "capacity_hours": tp.capacity_hours,
         "route": None if not tp.route else {

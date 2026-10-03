@@ -300,7 +300,7 @@ function TripDetail({ trip: t, busy, onApprove }: { trip: TripPlan; busy: boolea
             <span className="absolute -left-[33px] grid size-6 place-items-center rounded-md bg-graphite text-xs text-white">★</span>
             <p className="font-bold">Leave {t.start}</p>
             <p className="text-sm text-muted">
-              Crew {t.crew}, {t.trade}{t.start_offset_h > 0 ? ` · free to leave in ${hoursOrDays(t.start_offset_h, t.workday_hours)}` : " · ready now"}
+              {t.crew_region} crew {t.crew}, {t.trade}{t.start_offset_h > 0 ? ` · free to leave in ${hoursOrDays(t.start_offset_h, t.workday_hours)}` : " · ready now"}
             </p>
           </li>
           {t.stops.map((s) => (

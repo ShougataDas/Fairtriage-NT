@@ -172,7 +172,9 @@ def test_long_trip_is_shortened_when_it_would_make_a_later_urgent_job_wait_too_l
     """One crew. Trip 1 could take the long route to Gunbalanya, but then the
     crew would be back too late for the Urgent job at Maningrida."""
     orig = reference.trade_capacity()
-    one_crew = {k: {**v, "crews": 1} for k, v in orig.items()}
+    # one crew in the whole Territory: any depot's crew may now take a job, so
+    # with crews elsewhere the planner would simply send a second one
+    one_crew = {"Arnhem": {**orig["Arnhem"], "crews": 1}}
     monkeypatch.setattr(scheduler, "trade_capacity", lambda: one_crew)
     first = lodge("no hot water in the house", "Gunbalanya", vul=["medical_equipment"])
     lodge("the tap in the kitchen is dripping", "Batchelor", days=6)
@@ -243,3 +245,20 @@ def test_tenant_message_opens_with_the_wait():
     e = service.lodge(LodgeIn(text="not sure", community="Darwin (Parap)"))
     e = service.clarify(e["request_id"], "the gas is on fire")
     assert e["explanation_tenant"].startswith("If there is a fire")   # safety before the wait
+
+
+
+def test_the_crew_that_arrives_soonest_goes_even_from_another_region():
+    """Regression: Wadeye is in the Katherine region; with its road out, the
+    Katherine crew drove three hours to Darwin to fly. A Darwin crew flies direct."""
+    a = lodge("the only toilet is blocked and will not flush", "Wadeye")
+    tp = next(p for p in scheduler.plan(commit=False) if p.anchor.request_id == a)
+    assert tp.start == HUB and tp.crew_region != "Katherine"
+    assert "sooner than the Katherine crew" in tp.explanation
+    assert scheduler.to_dict(tp)["crew_region"] == tp.crew_region
+
+
+def test_the_home_crew_keeps_a_job_it_reaches_about_as_soon():
+    a = lodge("no hot water in the house", "Gunbalanya")       # Arnhem region, Darwin depot
+    tp = next(p for p in scheduler.plan(commit=False) if p.anchor.request_id == a)
+    assert tp.crew_region == "Arnhem" and tp.crew_note == ""
