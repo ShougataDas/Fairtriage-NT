@@ -130,7 +130,10 @@ department.
 ## How a trip's cost is estimated
 
 `fairtriage/cost.py` gives each recommended trip a [low, high] cost in AUD
-excluding GST, from `trip_cost` in the policy (every rate a placeholder):
+excluding GST, from `trip_cost` in the policy. Rates were checked against public sources in
+October 2026 (ATO allowances, Darwin and remote diesel prices, Darwin trade
+charge-out rates, Australian charter rates; each noted in the policy file);
+those with no public source are marked UNVERIFIED there:
 
 - **Transport:** road km out and back on the planner's own routes x litres per
   100 km (more on unsealed or restricted roads) x a fuel price range, vehicle

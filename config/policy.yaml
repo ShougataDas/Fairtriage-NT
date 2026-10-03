@@ -5,7 +5,7 @@
 # model. Change a value -> bump `version` -> old recommendations remain
 # explainable because each assessment stores the version that produced it.
 
-version: "policy-2026.10-v9"
+version: "policy-2026.10-v10"
 
 # ---------------------------------------------------------------------------
 # Tier ladder. Lexicographic and non-compensatory: nothing in a lower tier can
@@ -171,21 +171,33 @@ trips:
 # Trip cost estimate (v9). Shown beside each recommended trip so staff can
 # budget and compare. NEVER used to decide who is served or in what order:
 # a trip to a remote community costs more, and that must not push it back.
-# Every figure is [low, high] in AUD, excluding GST. ALL ARE PLACEHOLDERS:
+# Every figure is [low, high] in AUD, excluding GST. v10: checked against
+# public sources (October 2026), noted beside each value. Still estimates:
 # replace with the department's contract rates, fleet data and allowances.
+# "UNVERIFIED" marks values no public source was found for.
 # ---------------------------------------------------------------------------
 trip_cost:
   vehicle:
     type: "4WD utility, diesel, carrying tools and parts"
-    litres_per_100km: 13          # sealed road, loaded
+    # real-world loaded HiLux/Ranger 10-12 L/100 km, 12-15 towing (4X4 Australia)
+    litres_per_100km: 13
     unsealed_factor: 1.25         # more fuel and wear on unsealed or restricted roads
-    fuel_price_per_litre: [1.95, 2.45]   # Darwin pump price to remote fill-up
-    running_cost_per_km: [0.25, 0.45]    # tyres, servicing, wear (not fuel)
+    # Darwin diesel about $2.72 terminal gate, $2.88 cheapest pump (30 Sep 2026);
+    # Wadeye $2.88, Maningrida $3.58, Arnhem Land near $4 in March 2026 (ABC)
+    fuel_price_per_litre: [2.75, 3.60]
+    # non-fuel running costs. ATO 2025-26 all-in rate is 88c/km including fuel;
+    # fuel here is about 37c/km, leaving about 50c for tyres, servicing, wear
+    running_cost_per_km: [0.40, 0.60]
   charter:
     aircraft: "light twin charter (5 to 6 seats)"
     cruise_kmh: 250
-    rate_per_flight_hour: [900, 1400]
-    landing_fee: [30, 70]         # per landing at a community airstrip
+    # piston twins in Australia: Baron about $1,200/h, Navajo $700-1,500/h;
+    # remote NT and fuel surcharges push towards the top
+    rate_per_flight_hour: [1100, 1800]
+    # operators bill a minimum per flight however short (reported 1.5-2 h;
+    # 1 h used until confirmed with a Darwin operator)
+    minimum_hours_per_flight: 1.0
+    landing_fee: [30, 70]         # per landing. UNVERIFIED: councils set these
     # with nights away the aircraft goes home and comes back: billed twice
     reposition_when_overnight: true
   crew:
@@ -194,26 +206,29 @@ trip_cost:
     # driving and working alone is not safe
     assistant_on_remote_trips: 1
   labour_rate_per_hour:           # charge-out rate including on-costs
-    Electrician: [95, 130]
-    Plumber: [90, 125]
-    Gas Fitter: [100, 140]
-    Builder: [85, 120]
-    Locksmith: [80, 110]
-    Handyperson: [65, 90]
-    Pest Control: [75, 105]
-    assistant: [50, 70]
+    Electrician: [90, 140]        # Darwin $80-110, Australia $80-130, master $100-150
+    Plumber: [100, 160]           # Darwin business hours $100-160
+    Gas Fitter: [100, 160]        # licensed gas work: as plumbing
+    Builder: [85, 120]            # UNVERIFIED
+    Locksmith: [80, 120]          # UNVERIFIED
+    Handyperson: [60, 90]         # UNVERIFIED
+    Pest Control: [80, 120]       # UNVERIFIED
+    assistant: [50, 75]           # employee wages in Darwin about $46-52/h, plus on-costs
   ordinary_hours_per_day: 7.6     # 38-hour week; hours past this are overtime
   overtime_loading: 0.5           # paid at 1.5x
   immediate_callout_loading: [0.0, 0.5]   # an Immediate job may fall after hours
   setup_hours_per_stop: 0.5       # park, find the tenant, unload, clean up
   job_hours_range: [0.85, 1.4]    # repairs often take longer than estimated
   logistics:
-    accommodation_per_person_night: [160, 260]   # remote visitor quarters are few
-    meals_per_person_day_overnight: [70, 110]    # travel allowance
-    meals_per_person_day_day_trip: [0, 30]
-    freight_air_trip: [150, 400]   # tools and parts flown in
-    local_vehicle_per_day_air_trip: [100, 250]   # community vehicle hire after flying in
-  materials_per_job:              # parts and consumables, by trade
+    # ATO 2025-26 reasonable amounts: country centres $188, Darwin $220;
+    # council visitor rooms (Roper Gulf) $200 a night
+    accommodation_per_person_night: [190, 260]
+    # ATO 2025-26 meals + incidentals: country centres $174, Darwin $165 a day
+    meals_per_person_day_overnight: [140, 175]
+    meals_per_person_day_day_trip: [0, 40]       # ATO overtime meal $38.65
+    freight_air_trip: [150, 400]   # tools and parts flown in. UNVERIFIED
+    local_vehicle_per_day_air_trip: [100, 250]   # community vehicle hire. UNVERIFIED
+  materials_per_job:              # parts and consumables, by trade. UNVERIFIED
     Electrician: [30, 250]
     Plumber: [40, 300]
     Gas Fitter: [50, 350]
@@ -221,7 +236,7 @@ trip_cost:
     Locksmith: [40, 200]
     Handyperson: [20, 150]
     Pest Control: [60, 200]
-  contingency: [0.05, 0.15]       # weather, road delays, a return visit
+  contingency: [0.05, 0.15]       # weather, road delays, a return visit. A planning choice
 
 # ---------------------------------------------------------------------------
 # Alerts

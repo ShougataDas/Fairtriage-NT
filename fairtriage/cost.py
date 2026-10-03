@@ -72,7 +72,9 @@ def estimate(out_legs: list, back_legs: list, jobs: list[JobWork], trade: str,
     rough_km = sum(l.km for l in road if _rough(l))
     litres = ((road_km - rough_km) + rough_km * v["unsealed_factor"]) * v["litres_per_100km"] / 100
     travel_h = sum(l.hours for l in legs)
-    flight_h = sum(l.km for l in flights) / air["cruise_kmh"]
+    # billed per flight, with the operator's minimum however short the hop
+    flight_h = sum(max(l.km / air["cruise_kmh"], air.get("minimum_hours_per_flight", 0.0))
+                   for l in flights)
     onsite = sum(j.hours for j in jobs)
     setup = c["setup_hours_per_stop"] * len(jobs)
     remote = any(communities()[p].remote for p in places if p in communities())
@@ -154,7 +156,8 @@ def estimate(out_legs: list, back_legs: list, jobs: list[JobWork], trade: str,
                            "none: the NT has no toll roads, and no paid parking outside Darwin city"))
     if remote:
         logistics.append(_line("Aboriginal land permit", 0, 0,
-                               "no fee, but apply to the land council before travelling"))
+                               "usually no fee (some areas charge entry, e.g. Gove Peninsula $35); "
+                               "apply to the land council at least 10 working days ahead"))
 
     labour = [_line(
         f"{trade} ({crew['tradespeople']})",
