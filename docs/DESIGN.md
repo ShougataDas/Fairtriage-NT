@@ -127,6 +127,34 @@ that is up to 75 days against a 25-day target; the estimate shows it rather
 than hide it. Lowering that multiple is the lever, and a decision for the
 department.
 
+## How a trip's cost is estimated
+
+`fairtriage/cost.py` gives each recommended trip a [low, high] cost in AUD
+excluding GST, from `trip_cost` in the policy (every rate a placeholder):
+
+- **Transport:** road km out and back on the planner's own routes x litres per
+  100 km (more on unsealed or restricted roads) x a fuel price range, vehicle
+  running costs per km, and for flights the charter by flight hour (billed
+  twice when the crew stays overnight and the aircraft goes home), plus
+  landing fees.
+- **Logistics:** accommodation per person per night away, meals and travel
+  allowance per day, freight and a community vehicle when flying in. Tolls,
+  parking and land permits are listed at $0 so it is visible they were
+  considered.
+- **Labour:** the tradesperson's hourly rate, and an assistant on remote
+  roads or nights away, for travel hours plus on-site hours (job hours x 0.85
+  to 1.4, plus set-up per stop), with overtime past 7.6 hours a day and an
+  after-hours loading when the destination job is Immediate.
+- **Other:** parts and materials per job by trade, and a 5 to 15%
+  contingency for weather, road delays or a return visit.
+
+Low takes every input at its low end and high at its high end, so the range
+is deliberately wide: a planning estimate, not a quote. The same calculation
+for one trip per job gives the "separate trips" figure. **Cost is never an
+input to ranking or to which jobs a trip serves**; a test sets every rate to
+an absurd value and checks the plans do not change. A remote community costs
+more to reach, and that must not move its tenants down.
+
 ## Places covered
 
 64 places: 33 Darwin suburbs, 13 in Palmerston, 6 in the Litchfield rural

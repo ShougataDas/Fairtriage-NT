@@ -14,7 +14,7 @@ Built for the CDU IT Code Fair, Trusted AI decision-support challenge.
 ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-database-47A248?logo=mongodb&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-496%20passing-2f6b4f)
+![Tests](https://img.shields.io/badge/tests-507%20passing-2f6b4f)
 
 ---
 
@@ -95,6 +95,11 @@ flowchart LR
   (closed roads removed, restricted roads slowed). Jobs on the way are added
   in need order, never quickest first, only while nobody is made to wait
   too long.
+- **Trip cost.** Each recommended trip shows a probable cost range: fuel,
+  vehicle running costs and charter flights; accommodation, meals, freight
+  and local vehicle hire; labour for every person for travel and on-site
+  hours; parts and a stated contingency. Shown for budgeting and compared
+  with separate trips, never used to decide who is served.
 
 The full design, test findings and evaluation are in
 **[docs/DESIGN.md](docs/DESIGN.md)**.
@@ -205,7 +210,7 @@ python scripts/run_scenarios.py
 python scripts/run_eval.py
 ```
 
-The first runs 496 tests on an in-memory database, so no server is needed.
+The first runs 507 tests on an in-memory database, so no server is needed.
 The second runs the 16 demo scenarios in [TEST_CASES.md](TEST_CASES.md). The
 third scores reading against the 12,000-row dataset in `data/`.
 
@@ -259,7 +264,7 @@ frontend/            Next.js web app (presentation only; calls the API)
 config/policy.yaml   Every weight and threshold
 reference/           Communities, road network, crews, road status
 scripts/             Seeding, evaluation, scenario runner, data builders
-tests/               496 tests
+tests/               507 tests
 docs/DESIGN.md       Design notes, test findings, evaluation
 ```
 

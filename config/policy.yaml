@@ -5,7 +5,7 @@
 # model. Change a value -> bump `version` -> old recommendations remain
 # explainable because each assessment stores the version that produced it.
 
-version: "policy-2026.10-v8"
+version: "policy-2026.10-v9"
 
 # ---------------------------------------------------------------------------
 # Tier ladder. Lexicographic and non-compensatory: nothing in a lower tier can
@@ -166,6 +166,62 @@ trips:
     # separate trip to it would cost, so a detour never costs more than that.
     extra_hour_cost: 1.0
     charter_cost: 3.0             # a charter flight costs money: counted as this much value
+
+# ---------------------------------------------------------------------------
+# Trip cost estimate (v9). Shown beside each recommended trip so staff can
+# budget and compare. NEVER used to decide who is served or in what order:
+# a trip to a remote community costs more, and that must not push it back.
+# Every figure is [low, high] in AUD, excluding GST. ALL ARE PLACEHOLDERS:
+# replace with the department's contract rates, fleet data and allowances.
+# ---------------------------------------------------------------------------
+trip_cost:
+  vehicle:
+    type: "4WD utility, diesel, carrying tools and parts"
+    litres_per_100km: 13          # sealed road, loaded
+    unsealed_factor: 1.25         # more fuel and wear on unsealed or restricted roads
+    fuel_price_per_litre: [1.95, 2.45]   # Darwin pump price to remote fill-up
+    running_cost_per_km: [0.25, 0.45]    # tyres, servicing, wear (not fuel)
+  charter:
+    aircraft: "light twin charter (5 to 6 seats)"
+    cruise_kmh: 250
+    rate_per_flight_hour: [900, 1400]
+    landing_fee: [30, 70]         # per landing at a community airstrip
+    # with nights away the aircraft goes home and comes back: billed twice
+    reposition_when_overnight: true
+  crew:
+    tradespeople: 1
+    # a second person on any trip with nights away or remote roads: remote
+    # driving and working alone is not safe
+    assistant_on_remote_trips: 1
+  labour_rate_per_hour:           # charge-out rate including on-costs
+    Electrician: [95, 130]
+    Plumber: [90, 125]
+    Gas Fitter: [100, 140]
+    Builder: [85, 120]
+    Locksmith: [80, 110]
+    Handyperson: [65, 90]
+    Pest Control: [75, 105]
+    assistant: [50, 70]
+  ordinary_hours_per_day: 7.6     # 38-hour week; hours past this are overtime
+  overtime_loading: 0.5           # paid at 1.5x
+  immediate_callout_loading: [0.0, 0.5]   # an Immediate job may fall after hours
+  setup_hours_per_stop: 0.5       # park, find the tenant, unload, clean up
+  job_hours_range: [0.85, 1.4]    # repairs often take longer than estimated
+  logistics:
+    accommodation_per_person_night: [160, 260]   # remote visitor quarters are few
+    meals_per_person_day_overnight: [70, 110]    # travel allowance
+    meals_per_person_day_day_trip: [0, 30]
+    freight_air_trip: [150, 400]   # tools and parts flown in
+    local_vehicle_per_day_air_trip: [100, 250]   # community vehicle hire after flying in
+  materials_per_job:              # parts and consumables, by trade
+    Electrician: [30, 250]
+    Plumber: [40, 300]
+    Gas Fitter: [50, 350]
+    Builder: [100, 600]
+    Locksmith: [40, 200]
+    Handyperson: [20, 150]
+    Pest Control: [60, 200]
+  contingency: [0.05, 0.15]       # weather, road delays, a return visit
 
 # ---------------------------------------------------------------------------
 # Alerts

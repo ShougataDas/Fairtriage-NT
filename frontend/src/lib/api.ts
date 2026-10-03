@@ -242,8 +242,40 @@ export interface TripPlan {
   options: TripOption[];
   coords: Record<string, [number, number]>;
   benefit: TripBenefit | null;
+  cost: TripCost | null;
   left_behind: { request_id: string; community: string; tier: Tier; reason: string }[];
   workday_hours: number;
+}
+
+/** Probable cost of a whole trip, [low, high] AUD ex GST. Never used for priority. */
+export interface TripCost {
+  low: number;
+  high: number;
+  currency: string;
+  gst: string;
+  groups: {
+    key: "transport" | "logistics" | "labour" | "other";
+    label: string;
+    low: number;
+    high: number;
+    lines: { label: string; low: number; high: number; basis: string }[];
+  }[];
+  assumptions: {
+    vehicle: string | null;
+    aircraft: string | null;
+    road_km: number;
+    flight_hours: number;
+    travel_hours: number;
+    onsite_hours: [number, number];
+    days: [number, number];
+    nights: [number, number];
+    people: number;
+    jobs: number;
+  };
+  separate: { trips: number; low: number; high: number } | null;
+  saving: { low: number; high: number } | null;
+  placeholder_rates: boolean;
+  used_for_priority: false;
 }
 
 export interface TripBenefit {
@@ -303,6 +335,7 @@ export interface ConfirmedTrip {
   status?: "approved" | "completed" | "cancelled";
   active_jobs?: number;
   route?: { by_air?: boolean } | null;
+  cost?: TripCost | null;
   history?: { action: string; at: string; actor: string; reason: string | null; request_id?: string }[];
 }
 

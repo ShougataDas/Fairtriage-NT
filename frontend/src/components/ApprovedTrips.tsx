@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CircleCheck, CircleX, History, Plane, Truck, UserMinus } from "lucide-react";
 import { post, type ConfirmedTrip } from "@/lib/api";
 import { cx, hoursOrDays, when } from "@/lib/format";
+import { moneyRange } from "@/components/TripCost";
 import { Button, Empty, ErrorBox, Pill, TierBadge, inputClass } from "@/components/ui";
 
 type Filter = "approved" | "completed" | "cancelled";
@@ -82,6 +83,12 @@ function TripCard({ trip: t, onChanged }: { trip: ConfirmedTrip; onChanged: () =
           <p className="text-sm text-muted">
             {t.trade} · approved {when(t.created_at)} · {jobs.length} job{jobs.length === 1 ? "" : "s"}
           </p>
+          {t.cost && (
+            <p className="text-sm">
+              Probable cost <strong>{moneyRange(t.cost.low, t.cost.high)}</strong>
+              <span className="text-muted"> (estimated when approved{removed.length ? ", before jobs were removed" : ""})</span>
+            </p>
+          )}
         </div>
         <span className="flex gap-1">
           {t.route?.by_air && <Pill tone="ink"><Plane className="size-3" aria-hidden /> Charter</Pill>}

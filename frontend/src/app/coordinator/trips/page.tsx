@@ -11,6 +11,7 @@ import { fetcher, post, type CommunityGroup, type ConfirmedTrip, type TripPlan, 
 import { cx, hoursOrDays, tierStyle, when } from "@/lib/format";
 import { Button, Card, CardTitle, Empty, ErrorBox, PageHeader, Pill, Spinner, TierBadge, inputClass } from "@/components/ui";
 import { ApprovedTrips } from "@/components/ApprovedTrips";
+import { TripCost, moneyRange } from "@/components/TripCost";
 
 // Leaflet needs the browser: load the map on the client only.
 const TripMap = dynamic(() => import("@/components/TripMap"), {
@@ -224,6 +225,7 @@ function TripListItem({ trip: t, active, onSelect }: { trip: TripPlan; active: b
         <span>{t.stops.length} repair{t.stops.length > 1 ? "s" : ""}</span>
         <span>{t.route?.hours.toFixed(1)} h travel</span>
         {t.benefit && t.benefit.hours_saved >= 0.5 && <span className="font-bold text-routine">saves {t.benefit.hours_saved} h</span>}
+        {t.cost && <span>≈ {moneyRange(t.cost.low, t.cost.high)}</span>}
       </p>
     </button>
   );
@@ -288,6 +290,8 @@ function TripDetail({ trip: t, busy, onApprove }: { trip: TripPlan; busy: boolea
           </div>
         </Card>
       )}
+
+      {t.cost && <TripCost cost={t.cost} />}
 
       <Card>
         <CardTitle icon={<Truck className="size-5 text-ink" aria-hidden />}>Itinerary</CardTitle>

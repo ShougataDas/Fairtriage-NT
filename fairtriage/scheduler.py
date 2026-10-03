@@ -672,6 +672,12 @@ def _why_approve(tp: TripPlan, b: dict) -> list[str]:
     return out
 
 
+def _cost(tp: TripPlan) -> dict | None:
+    """Shown beside the plan, never used to make it: see cost.py."""
+    from .cost import trip_cost
+    return trip_cost(tp)
+
+
 def to_dict(tp: TripPlan) -> dict:
     wd = _cfg()["workday_hours"]
     cs = communities()
@@ -690,6 +696,7 @@ def to_dict(tp: TripPlan) -> dict:
             "legs": [l.__dict__ for l in tp.route.legs]},
         "coords": {n: [cs[n].lat, cs[n].lon] for n in names if n in cs},
         "benefit": benefit(tp),
+        "cost": _cost(tp),
         "stops": [{"order": i, "request_id": s.job.request_id, "community": s.job.community,
                    "address": s.job.address, "trade": s.job.trade, "evidence": s.job.evidence,
                    "tier": s.job.tier, "need": s.job.need, "reason": s.reason,
@@ -728,7 +735,7 @@ def _commit(plans: list[TripPlan], actor: str = "coordinator-demo") -> None:
                      for (j, r, _), st in zip(tp.batched, d["stops"])],
             "left_behind": d["left_behind"], "start": tp.start, "headline": tp.headline,
             "explanation": tp.explanation, "route": d["route"], "options": d["options"],
-            "benefit": d["benefit"], "created_at": now(),
+            "benefit": d["benefit"], "cost": d["cost"], "created_at": now(),
             "status": "approved",
             # jobs this approval passed over for lack of room: undone on cancel
             "deferred": [j.request_id for j, reason in tp.left_behind
@@ -752,7 +759,7 @@ def trips_view() -> list[dict]:
              "jobs": t.get("jobs", []), "left_behind": t.get("left_behind", []),
              "start": t.get("start"), "headline": t.get("headline"),
              "explanation": t.get("explanation"), "route": t.get("route"),
-             "benefit": t.get("benefit"), "created_at": t["created_at"],
+             "benefit": t.get("benefit"), "cost": t.get("cost"), "created_at": t["created_at"],
              "status": t.get("status", "approved"), "history": t.get("history", []),
              "active_jobs": sum(1 for j in t.get("jobs", []) if not j.get("removed"))}
             for t in db.col(TRIPS).find().sort("created_at", -1)]
