@@ -84,3 +84,38 @@ def test_an_overdue_routine_job_is_never_promised_within_hours():
     lodge("the kitchen cupboard door came off the hinge", "Darwin (Parap)", days=20)
     row = next(q for q in service.queue_view() if q["tier"] == "Routine")
     assert "hour" not in row["wait_text"]
+
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize("place", ["Humpty Doo", "Batchelor", "Coolalinga", "Palmerston", "Katherine"])
+def test_towns_within_daily_reach_do_not_wait_for_a_trip(place):
+    """Regression: Humpty Doo (45 km) and Batchelor (100 km) are under an hour's
+    drive but were past the 40 km line, so a routine job there waited for a
+    remote-style trip: 26 to 35 days, against 3 days in Palmerston."""
+    r = lodge("the kitchen cupboard door came off the hinge", place)
+    assert r["wait"]["central"] < 6, (place, r["wait"]["range_text"])
+    assert "maintenance trip" not in r["explanation_tenant"]
+
+
+def test_remote_routine_still_waits_for_its_trip():
+    r = lodge("the kitchen cupboard door came off the hinge", "Wadeye")
+    assert r["wait"]["breakdown"]["trip_wait_days"] is not None
+    assert "maintenance trip" in r["explanation_tenant"]
+
+
+def test_a_longer_drive_reads_as_a_longer_immediate_wait():
+    text = "water is pouring from the ceiling onto the power point and sparking"
+    near = lodge(text, "Palmerston")["wait"]
+    far = lodge(text, "Batchelor")["wait"]
+    assert far["central"] > near["central"]
+    assert far["range_text"] != near["range_text"]
+
+
+def test_queue_position_moves_the_wait():
+    first = lodge("the kitchen tap is dripping", "Palmerston", days=10)["wait"]["central"]
+    for i in range(40):
+        lodge("the kitchen tap is dripping", "Palmerston", days=5 - i * 0.1)
+    last = lodge("the kitchen tap is dripping", "Palmerston")["wait"]["central"]
+    assert last >= first + 2

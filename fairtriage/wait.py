@@ -138,7 +138,8 @@ def estimate(community: str, tier: str, hours_ahead: float, hours_ahead_darwin: 
     discount = w["scheduled_trip_discount_days"] if trip_scheduled else 0.0
     central = max(lead + queue + mobilise + travel + penalty - discount, lead,
                   w["floor_days"][tier])
-    waits_for_trip = trip_wait_days is not None and travel_days(community) > 0
+    from .routing import needs_trip
+    waits_for_trip = trip_wait_days is not None and needs_trip(community)
     trip_bound = False
     if waits_for_trip and trip_wait_days + travel + penalty > central:
         central, trip_bound = trip_wait_days + travel + penalty, True
@@ -203,7 +204,9 @@ def fmt_range(est: WaitEstimate) -> str:
     """Phrased to follow 'Expect a tradesperson ...'."""
     lo, hi = est.low, est.high
     if hi < 1:
-        lo_h, hi_h = est.low_hours, est.high_hours
+        # rounded, not floored and ceiled: 2.25-3.05 h is "2 to 3", not "2 to 4",
+        # so a 15-minute and an hour's drive read differently
+        lo_h, hi_h = max(1, round(lo * 24)), max(1, round(hi * 24))
         if hi_h <= 1:
             return "within about an hour"
         if lo_h >= hi_h - 1:

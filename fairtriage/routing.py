@@ -160,6 +160,19 @@ def candidate_routes(src: str, dst: str, G: nx.Graph | None = None) -> list[Rout
         return []
 
 
+def needs_trip(community: str) -> bool:
+    """Whether a community is served by planned trips rather than the region's
+    daily crews: remote, reached by air or barge, or more than
+    `trips.daily_reach_hours` from the depot by road. Humpty Doo and Batchelor
+    are past 40 km but under an hour's drive, so they are daily work."""
+    from .reference import trade_capacity
+    c = communities()[community]
+    if c.remote or c.access != "road":
+        return True
+    h = travel_hours(trade_capacity()[c.trade_region]["depot"], community)
+    return h is None or h > policy()["trips"]["daily_reach_hours"]
+
+
 def travel_hours(src: str, dst: str, G: nx.Graph | None = None) -> float | None:
     f = fastest(src, dst) if G is None else None
     if G is None:

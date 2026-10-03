@@ -128,6 +128,9 @@ trips:
   capacity_hours_per_day: 7.5   # on-site work per trip day
   trip_days: 2                  # so a trip holds 15 hours of on-site work
   workday_hours: 10             # crew hours per day, driving + work: turns hours into days
+  # v8: a non-remote community within this drive of its depot is served by the
+  # daily crews, not by planned trips (Humpty Doo, Batchelor, Pine Creek)
+  daily_reach_hours: 1.5
   match_trade: true             # a stop must need the trade the trip carries
   stops_include_urban: false    # Darwin suburbs have their own daily crews
 

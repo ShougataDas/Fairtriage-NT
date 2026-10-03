@@ -55,7 +55,7 @@ from . import db
 from .db import REQUESTS, TEAMS, TRIPS, now
 from .policy import sort_key
 from .reference import communities, trade_capacity, travel_days
-from .routing import Route, candidate_routes, fastest, load_network
+from .routing import Route, candidate_routes, fastest, load_network, needs_trip
 from .schemas import Extraction
 
 
@@ -450,7 +450,7 @@ def next_trip_days(community: str, trade: str, tier: str, target_days: float,
     rides on a trip that is due now (an urgent job of the same trade is open
     there), or waits until the community's oldest job reaches the threshold
     multiple of its target: the same rule `plan()` uses to start a trip."""
-    if tier in ("Immediate", "Urgent") or travel_days(community) == 0:
+    if tier in ("Immediate", "Urgent") or not needs_trip(community):
         return None
     same = [j for j in _load_jobs() if j.community == community and j.trade == trade
             and j.request_id != exclude]
@@ -488,7 +488,7 @@ def set_team_location(trade_region: str, location: str) -> None:
 # ---------------------------------------------------------------------------
 
 def _triggers(jobs: list[Job]) -> list[tuple[Job, str, str]]:
-    remote_jobs = [j for j in jobs if travel_days(j.community) > 0]
+    remote_jobs = [j for j in jobs if needs_trip(j.community)]
     by_comm: dict[str, list[Job]] = {}
     for j in remote_jobs:
         by_comm.setdefault(j.community, []).append(j)
@@ -542,7 +542,7 @@ def _build(jobs: list[Job], anchors, locations: dict[str, str],
             # trip of its own (another crew, or the same crew once it is free).
             # Without this, overflow from a busy community was only "deferred".
             waiting = sorted((j for j in jobs if j.request_id not in taken
-                              and j.tier in ("Immediate", "Urgent") and travel_days(j.community) > 0
+                              and j.tier in ("Immediate", "Urgent") and needs_trip(j.community)
                               and not any(p.anchor is j for p in plans)), key=lambda j: j.key)
             queue = [(j, "urgent_anchor", f"{j.tier} job left off a full trip gets its own")
                      for j in waiting]
