@@ -120,7 +120,9 @@ DANGER_RULES = [
      r"|\brain\b.{0,20}\b(coming|entering|getting|pouring|pours) (in|into|inside)\b.{0,30}\b(bed|bedrooms?|rooms?|house|lounge|living)"
      r"|\b(ceiling|roof|wall)\b.{0,20}\b(sagging|sags|bowing|bulging|dropping)\b"
      r"|\b(will|going to|about to|might|could|gonna)\s+(fall|collapse|come down|cave in)\b"
-     r"|\b(floor ?boards?|floor|deck|decking)\b.{0,20}\b(gave way|give way|giving way|collapsed|fell through|broke through|caved in)\b",
+     r"|\b(floor ?boards?|floor|deck|decking)\b.{0,20}\b(gave way|give way|giving way|collapsed|fell through|broke through|caved in)\b"
+     r"|\b(fell|falls?|fallen|falling|went|gone|stepped|foot went|leg went|broke|broken) through (the |a |our |some )?(\w+ )?"
+     r"(floor ?boards?|floor|deck\w*|veranda\w*|boards)\b",
      "structural", False),
     # falls: steps, stairs, ramps, balconies, and the rails that stop people falling
     (r"\b(steps?|stairs?|staircase|ramp|balcony|verandah|veranda|deck)\b.{0,25}"
@@ -312,7 +314,10 @@ SELF_HARM = (r"\b(kill(ing)? myself|end(ing)? my life|suicid\w*|want(s)? to die|
 # the roof leaks" is an injury AND a leak), so neither is lost.
 INJURY = (
     r"\b(fell|fall|falls|fallen|falling|slipped|slip)\s+(off|from|through|down)\s+(the\s+|a\s+|our\s+)?"
-    r"(roof|ladder|balcony|verandah|veranda|stairs?|steps|deck|tree|window|ceiling)\b"
+    r"(roof|ladder|balcony|verandah|veranda|stairs?|steps|deck|tree|window|ceiling|floor ?boards?|floor)\b"
+    r"|\b(fell|fallen)\s+through\b"
+    r"|\b(cut|cuts|gashed|sliced|burnt|burned|broke|sprained|twisted|hurt|injured|smashed)\s+(his|her|their|my|its)\s+"
+    r"(legs?|arms?|foot|feet|hands?|head|face|knees?|back|ankles?|wrists?|fingers?|toes?|eyes?)\b"
     r"|\b(fell|fallen)\b.{0,40}\b(hurt|bleeding|injured|knocked out|broke (his|her|their|my) \w+|can'?t (move|get up|walk))\b"
     r"|\b(is|are|was|keeps?)\s+(bleeding|unconscious|not moving|knocked out)\b"
     r"|\bhit (his|her|their|my) head\b|\bbroke (his|her|their|my) (leg|arm|back|neck|hip|wrist|ankle)\b"
@@ -556,8 +561,11 @@ class KeywordExtractor:
         # Uncertain or content-free reports go to the clarification gate as
         # UNCLEAR. Never when danger was found: a vague report of a hazard is
         # still a hazard.
+        unsure_text = low
+        if fault_clause and re.search(FAILURE, fault_clause):
+            unsure_text = re.sub(r"\bsomething (is |was )?(wrong|off|funny)\b", " ", low)
         if not danger and not essential and (
-                re.search(UNCERTAIN, low)
+                re.search(UNCERTAIN, unsure_text)
                 or (re.search(VAGUE_ONLY, low) and not re.search(FAILURE, low)
                     and not re.search(FAIL_PHRASES, low))):
             return Extraction(
