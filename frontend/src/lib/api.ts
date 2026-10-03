@@ -113,6 +113,18 @@ export interface RequestView {
   }[];
 }
 
+/** Immediate work that cannot be made safe within the target, by region and trade. */
+export interface BacklogAlert {
+  trade_region: string;
+  trade: string;
+  open: number;
+  over_target: number;
+  worst_wait: string;
+  worst_request: string;
+  target_hours: number;
+  oldest_days: number;
+}
+
 export interface QueueRow {
   request_id: string;
   tier: Tier;

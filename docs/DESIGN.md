@@ -106,7 +106,18 @@ tenant was told on the day; the queue screen and the tenant's tracking page
 recompute it from today's queue, using up the booking time first, so it
 counts down while the job waits and moves when work ahead is finished or a
 more dangerous job arrives. `wait.floor_days` stops an overdue routine job
-being shown as "within hours". Travel uses the trip
+being shown as "within hours".
+
+**Immediate** work is made safe by on-call contractors around the clock
+(`wait.make_safe`: crews on call per trade and region, an hour per make-safe
+visit), with that trade's day crews dropping other work, so a normal day
+stays within about 3 to 4 hours. When the queue pushes a job past
+`make_safe.target_hours` (4), the tenant is still told the real time, the
+report gets an `immediate_over_target` flag, and the queue screen shows a
+banner by trade and region telling the coordinator to call more crews in.
+Only when the job would be on time without the jobs ahead: a flight to a
+remote community can take longer than the target on its own, and more crews
+do not change that. Travel uses the trip
 planner's own fastest route, so a closed road means the charter the planner
 would send, not a week's delay. A **remote routine** job waits for the next
 trip to its community, worked out with the planner's rule: now, if an urgent

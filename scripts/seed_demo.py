@@ -33,7 +33,7 @@ DEMO = [
     ("The socket gets very hot and makes a crackling sound when I use it.",
      "Darwin (Nightcliff)", [], 0.2, None),
     ("Just checking if this app works. Also the powerpoint in the kitchen has been "
-     "sparking since Tuesday.", "Wadeye", ["elderly"], 3, None),
+     "sparking since Tuesday.", "Wadeye", ["elderly"], 0.06, None),   # reported today
     ("the only toilet is blocked", "Darwin (Malak)", ["children"], 1, False),
     ("the only toilet is blocked", "Maningrida", ["children"], 1, False),
     ("aircon bin broken since wet season start, old lady live here", "Wadeye",
@@ -94,8 +94,12 @@ def _progress(done: int, total: int, out: dict) -> None:
           f"{' (model failed, keyword rules used)' if fell_back else ''}", flush=True)
 
 
-def seed(data: Path | None, n: int, seed_: int) -> None:
+def seed(data: Path | None, n: int, seed_: int, max_immediate: int = 8) -> None:
+    """`max_immediate`: Immediate jobs left open. A real day has a handful
+    being made safe; the rest of the sample's dangerous reports are recorded
+    as already made safe, so the queue is not a week-long fake backlog."""
     reset()
+    open_immediate = 0
     rng = random.Random(seed_)
     names = list(communities())
 
@@ -124,7 +128,12 @@ def seed(data: Path | None, n: int, seed_: int) -> None:
             asked += 1
             out = service.clarify(out["request_id"], _answer_for(out["question"], r))
         if out.get("tier") == "Immediate":
-            _set_age(out["request_id"], rng.uniform(0.05, 0.4))
+            if open_immediate < max_immediate:
+                open_immediate += 1
+                _set_age(out["request_id"], rng.uniform(0.02, 0.15))   # 30 min to 3.6 h
+            else:
+                db.update_request(out["request_id"], {"status": "completed", "completed_at": _iso(0.5),
+                                                      "completed_note": "made safe (demo history)"})
         lodged += 1
         _progress(lodged, total, out)
 
@@ -150,6 +159,8 @@ def main() -> None:
     ap.add_argument("--data", default=str(ROOT / "data" / "fairtriage_v3.csv"))
     ap.add_argument("--n", type=int, default=90)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--max-immediate", type=int, default=8,
+                    help="Immediate jobs left open; the rest are seeded as already made safe")
     ap.add_argument("--model", action="store_true",
                     help="read seed rows with the model set in .env (uses API quota: "
                          "one or two calls per row). Default: keyword rules")
@@ -160,7 +171,7 @@ def main() -> None:
         os.environ["FAIRTRIAGE_EXTRACTOR"] = "keyword"
         config.reset_caches()
     print(f"seeding with: {config.reader_status()['label']}")
-    seed(Path(a.data), a.n, a.seed)
+    seed(Path(a.data), a.n, a.seed, a.max_immediate)
 
 
 if __name__ == "__main__":

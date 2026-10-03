@@ -119,3 +119,44 @@ def test_queue_position_moves_the_wait():
         lodge("the kitchen tap is dripping", "Palmerston", days=5 - i * 0.1)
     last = lodge("the kitchen tap is dripping", "Palmerston")["wait"]["central"]
     assert last >= first + 2
+
+
+def test_immediate_is_made_safe_within_the_target_on_a_normal_day():
+    """Regression: a sparking power point in Darwin City was told 14 to 18 hours
+    behind a stale backlog; Immediate work competed with the day crews only."""
+    for _ in range(3):
+        lodge("the power point is sparking", "Darwin (Karama)")
+    r = lodge("the power point in the kitchen is sparking when I plug the kettle in", "Darwin (City)")
+    assert r["tier"] == "Immediate"
+    assert r["wait"]["high"] * 24 <= 4, r["wait"]["range_text"]
+    assert not any(f["code"] == "immediate_over_target" for f in r["flags"])
+    assert service.backlog_alerts() == []
+
+
+def test_an_immediate_backlog_alerts_the_coordinator_and_tells_the_truth():
+    # same report, so the new one queues behind the 40 (ties go to who reported first)
+    for i in range(40):
+        lodge("the power point is sparking", "Darwin (Karama)", days=0.1 - i * 0.001)
+    r = lodge("the power point is sparking", "Darwin (City)")
+    assert r["wait"]["high"] * 24 > 4                     # the tenant gets the real time
+    flag = next(f for f in r["flags"] if f["code"] == "immediate_over_target")
+    assert flag["audience"] == "coordinator" and "Electrician" in flag["detail"]
+    alerts = service.backlog_alerts()
+    assert alerts and alerts[0]["trade"] == "Electrician" and alerts[0]["trade_region"] == "Darwin"
+    assert alerts[0]["over_target"] >= 1
+
+
+def test_the_alerts_endpoint():
+    from fastapi.testclient import TestClient
+    from fairtriage.api import app
+    for i in range(40):
+        lodge("the power point is sparking", "Darwin (Karama)", days=0.1 - i * 0.001)
+    got = TestClient(app).get("/api/alerts").json()
+    assert got and got[0]["trade"] == "Electrician"
+
+
+def test_a_remote_flight_alone_does_not_raise_a_crew_alert():
+    r = lodge("the power point is sparking", "Galiwinku")      # air or barge only
+    assert r["tier"] == "Immediate"
+    assert not any(f["code"] == "immediate_over_target" for f in r["flags"])
+    assert service.backlog_alerts() == []

@@ -133,6 +133,12 @@ def api_communities():
             for g, names in _community_groups()]
 
 
+@app.get("/api/alerts")
+def api_alerts():
+    """Immediate work that cannot be made safe within the target, by region and trade."""
+    return service.backlog_alerts()
+
+
 @app.get("/api/contacts")
 def api_contacts():
     """Reports a person must phone about: still unclear, or a withdrawal."""

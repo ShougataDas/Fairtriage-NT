@@ -101,6 +101,15 @@ wait:
   trade_share_default: 0.15
   min_trade_crews: 1            # a contractor can always be called in
 
+  # v8: Immediate jobs go to on-call make-safe contractors, around the clock,
+  # with that trade's day crews dropping other work. A make-safe visit (power
+  # isolated, water off, door boarded) is shorter than the repair after it.
+  # PLACEHOLDER values: replace with the department's on-call arrangements.
+  make_safe:
+    on_call_per_trade: {Darwin: 2, Katherine: 1, Arnhem: 1}
+    hours_per_job: 1.0
+    target_hours: 4             # an Immediate wait past this alerts the coordinator
+
   # v8: days to get a crew moving to a remote community before it travels:
   # booking a charter or barge, packing parts. PLACEHOLDER values.
   mobilise_days:

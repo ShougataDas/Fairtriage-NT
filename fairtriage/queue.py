@@ -62,6 +62,7 @@ class Position:
     jobs_ahead_trade: int = 0       # same trade, same region: the ones that delay this job
     hours_ahead: float = 0.0        # their on-site hours
     hours_ahead_darwin: float = 0.0  # the same, for the identical job in Darwin
+    jobs_ahead_darwin_trade: int = 0
 
 
 def position(request_id: str, tier: str, need: float, lodged_at: str,
@@ -92,4 +93,6 @@ def position(request_id: str, tier: str, need: float, lodged_at: str,
         hours_ahead=sum(j.hours for j in mine),
         hours_ahead_darwin=sum(j.hours for j in ahead
                                if j.trade_region == "Darwin" and j.trade == trade),
+        jobs_ahead_darwin_trade=sum(1 for j in ahead
+                                    if j.trade_region == "Darwin" and j.trade == trade),
     )

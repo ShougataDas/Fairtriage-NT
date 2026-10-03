@@ -133,7 +133,17 @@ def finalise(rid: str, st: dict, override: dict | None = None) -> dict:
         target = policy()["service_targets_days"][tier]["remote" if c.remote else "urban"]
         trip_wait = next_trip_days(community, trade, tier, target, exclude=rid)
     wait = (estimate(community, tier, pos.hours_ahead, pos.hours_ahead_darwin, trade=trade,
-                     trip_wait_days=trip_wait, jobs_ahead=pos.jobs_ahead_trade) if pos else None)
+                     trip_wait_days=trip_wait, jobs_ahead=pos.jobs_ahead_trade,
+                     jobs_ahead_darwin=pos.jobs_ahead_darwin_trade) if pos else None)
+    if wait and tier == "Immediate" and backlog_late(wait.high * 24, wait.central * 24,
+                                                     wait.breakdown["queue_days"] * 24):
+        flags.append({"code": "immediate_over_target",
+                      "detail": (f"expected {fmt_range(wait)}, past the "
+                                 f"{policy()['wait']['make_safe']['target_hours']}-hour target: "
+                                 f"{wait.breakdown.get('jobs_ahead') or 0} "
+                                 f"{wait.breakdown.get('trade', '')} jobs ahead in "
+                                 f"{wait.breakdown.get('trade_region', '')}"),
+                      "action": "call in on-call crews", "audience": "coordinator"})
 
     from .policy import Component
     comps = [Component(**c) for c in st.get("components", [])]
@@ -262,7 +272,7 @@ def live_wait(req: dict, jobs=None) -> dict | None:
         trip_wait = max(trip_wait - days_open, 0.0)
     w = estimate(community, a["tier"], pos.hours_ahead, pos.hours_ahead_darwin, trade=trade,
                  trip_wait_days=trip_wait, elapsed_days=days_open,
-                 jobs_ahead=pos.jobs_ahead_trade)
+                 jobs_ahead=pos.jobs_ahead_trade, jobs_ahead_darwin=pos.jobs_ahead_darwin_trade)
     return {"low": round(w.low, 1), "high": round(w.high, 1), "central": round(w.central, 1),
             "range_text": fmt_range(w), "on_trip": False, "days_open": days_open,
             "breakdown": w.breakdown}
@@ -344,6 +354,8 @@ def queue_view(tier: str | None = None, community: str | None = None) -> list[di
             "wait_text": now_w["range_text"] if now_w else None,
             "wait_on_trip": bool(now_w and now_w["on_trip"]),
             "told_low": a.get("wait_days_low"), "told_high": a.get("wait_days_high"),
+            "wait_queue_hours": (round(now_w["breakdown"]["queue_days"] * 24, 1)
+                                 if now_w and now_w.get("breakdown") else None),
             "wait_darwin": a.get("wait_days_darwin"), "days_open": days_open,
             "target_days": target, "pct_of_target": round(100 * days_open / target) if target else 0,
             "pct_of_urban_target": round(100 * days_open / urban_target) if urban_target else 0,
@@ -359,6 +371,39 @@ def queue_view(tier: str | None = None, community: str | None = None) -> list[di
         r["position"] = i
         r.pop("_key")
     return out
+
+
+def backlog_late(wait_high_h: float, central_h: float, queue_h: float) -> bool:
+    """Past the make-safe target BECAUSE of the queue: without the jobs ahead it
+    would be on time. A flight to a remote community can take longer than the
+    target on its own, and calling in more crews does not change that."""
+    target_h = policy()["wait"]["make_safe"]["target_hours"]
+    return wait_high_h > target_h and queue_h >= 1 and central_h - queue_h <= target_h
+
+
+def backlog_alerts(rows: list[dict] | None = None) -> list[dict]:
+    """Immediate work that cannot be made safe within the target, by region and
+    trade, from the live waits. The tenant is told the honest time; this tells
+    the coordinator to call more crews in."""
+    target_h = policy()["wait"]["make_safe"]["target_hours"]
+    rows = queue_view(tier="Immediate") if rows is None else [r for r in rows if r["tier"] == "Immediate"]
+    groups: dict[tuple[str, str], list[dict]] = {}
+    for r in rows:
+        region = communities()[r["community"]].trade_region
+        groups.setdefault((region, r["trade"] or "Handyperson"), []).append(r)
+    out = []
+    for (region, trade), rs in groups.items():
+        late = [r for r in rs if r["wait_high"] is not None
+                and backlog_late(r["wait_high"] * 24, (r["wait_low"] + r["wait_high"]) * 12,
+                                 r.get("wait_queue_hours") or 0)]
+        if not late:
+            continue
+        worst = max(late, key=lambda r: r["wait_high"])
+        out.append({"trade_region": region, "trade": trade, "open": len(rs), "over_target": len(late),
+                    "worst_wait": worst["wait_text"], "worst_request": worst["request_id"],
+                    "target_hours": target_h,
+                    "oldest_days": max(r["days_open"] for r in rs)})
+    return sorted(out, key=lambda a: -a["over_target"])
 
 
 def contact_list() -> list[dict]:

@@ -80,6 +80,17 @@ def queue_days(hours_ahead: float, trade_region: str, trade: str) -> float:
     return hours_ahead / per_day
 
 
+def make_safe_days(jobs_ahead: int, trade_region: str, trade: str) -> float:
+    """Days (on the clock) until an Immediate job is made safe. Immediate work
+    goes to on-call make-safe contractors around the clock, with the day crews
+    of that trade dropping what they are doing; a make-safe visit is shorter
+    than the full repair that follows it."""
+    m = policy()["wait"]["make_safe"]
+    per_day = (m["on_call_per_trade"].get(trade_region, 1) * 24
+               + trade_crews(trade_region, trade) * policy()["trips"]["capacity_hours_per_day"])
+    return jobs_ahead * m["hours_per_job"] / per_day
+
+
 def _mobilise(community: str, tier: str) -> float:
     c = communities()[community]
     m = policy()["wait"]["mobilise_days"]
@@ -103,7 +114,8 @@ def _spread(community: str, road: str, queue: float) -> float:
 def estimate(community: str, tier: str, hours_ahead: float, hours_ahead_darwin: float,
              trade: str = "Handyperson", trip_scheduled: bool = False,
              trip_wait_days: float | None = None, elapsed_days: float = 0.0,
-             jobs_ahead: int | None = None) -> WaitEstimate | None:
+             jobs_ahead: int | None = None,
+             jobs_ahead_darwin: int | None = None) -> WaitEstimate | None:
     """`hours_ahead`: hours of same-trade work ranked ahead in this job's region
     (`hours_ahead_darwin`: the same, in Darwin). `trip_wait_days`: for a remote
     Routine job, days until the planner's next trip there (0 if one is due now).
@@ -118,11 +130,14 @@ def estimate(community: str, tier: str, hours_ahead: float, hours_ahead_darwin: 
     road = road_of(community)["status"]
 
     lead = max(w["lead_days"][tier] - elapsed_days, 0.0)
-    queue = queue_days(hours_ahead, region, trade)
-    darwin_queue = queue_days(hours_ahead_darwin, "Darwin", trade)
-    if tier == "Immediate":                 # crews drop other work: the queue runs on the clock
-        queue *= t["capacity_hours_per_day"] / 24
-        darwin_queue *= t["capacity_hours_per_day"] / 24
+    if tier == "Immediate":                 # on-call make-safe, around the clock
+        n = jobs_ahead if jobs_ahead is not None else round(hours_ahead / 2)
+        nd = jobs_ahead_darwin if jobs_ahead_darwin is not None else round(hours_ahead_darwin / 2)
+        queue = make_safe_days(n, region, trade)
+        darwin_queue = make_safe_days(nd, "Darwin", trade)
+    else:
+        queue = queue_days(hours_ahead, region, trade)
+        darwin_queue = queue_days(hours_ahead_darwin, "Darwin", trade)
     mobilise = _mobilise(community, tier)
     # Travel by the planner's own fastest route, so the estimate and the trip
     # plan agree: restricted roads are already slower on it, and a closed road

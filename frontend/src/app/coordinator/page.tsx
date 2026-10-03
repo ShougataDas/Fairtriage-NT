@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { ArrowDown, ArrowUp, ChevronRight, Hourglass, Phone, RefreshCw, Search, TriangleAlert } from "lucide-react";
-import { fetcher, type Contact, type QueueRow, type Tier } from "@/lib/api";
+import { fetcher, type BacklogAlert, type Contact, type QueueRow, type Tier } from "@/lib/api";
 import { TIERS, ago, cx, days, humanise, tierStyle } from "@/lib/format";
 import { Card, CardTitle, Empty, ErrorBox, PageHeader, Pill, Spinner, TierBadge, inputClass } from "@/components/ui";
 import { DownloadMenu } from "@/components/DownloadMenu";
@@ -22,6 +22,7 @@ export default function QueuePage() {
     refreshInterval: 15000,
   });
   const { data: contacts } = useSWR<Contact[]>("/api/contacts", fetcher, { refreshInterval: 15000 });
+  const { data: alerts } = useSWR<BacklogAlert[]>("/api/alerts", fetcher, { refreshInterval: 30000 });
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -80,6 +81,33 @@ export default function QueuePage() {
           <p className="mt-1 text-3xl font-bold">{contacts?.length ?? "—"}</p>
         </div>
       </div>
+
+      {alerts && alerts.length > 0 && (
+        <div role="alert" className="rounded-2xl border-2 border-immediate/40 bg-immediate-soft p-5">
+          <p className="flex items-center gap-2 text-lg font-bold text-immediate">
+            <TriangleAlert className="size-5" aria-hidden /> Immediate work past the {alerts[0].target_hours}-hour target
+          </p>
+          <p className="mt-1 text-graphite">
+            These jobs cannot be made safe in time with the crews on call. Tenants are told the real wait. Call in more crews, or
+            check for jobs already made safe that are still open.
+          </p>
+          <ul className="mt-3 flex flex-col gap-2">
+            {alerts.slice(0, 5).map((a) => (
+              <li key={`${a.trade_region}-${a.trade}`} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                <span className="font-bold">{a.trade} · {a.trade_region}</span>
+                <span>
+                  {a.over_target} of {a.open} past target; longest now {a.worst_wait}
+                </span>
+                {a.oldest_days >= 1 && <span className="text-sm text-muted">oldest open {days(a.oldest_days)}</span>}
+                <Link href={`/coordinator/requests/${a.worst_request}`} className="text-sm font-bold text-ink underline">
+                  Longest wait
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {alerts.length > 5 && <p className="mt-2 text-sm text-muted">and {alerts.length - 5} more trades and regions</p>}
+        </div>
+      )}
 
       {contacts && contacts.length > 0 && (
         <Card className="border-urgent/30">

@@ -14,7 +14,7 @@ Built for the CDU IT Code Fair, Trusted AI decision-support challenge.
 ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-database-47A248?logo=mongodb&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-492%20passing-2f6b4f)
+![Tests](https://img.shields.io/badge/tests-496%20passing-2f6b4f)
 
 ---
 
@@ -143,7 +143,9 @@ python -m uvicorn fairtriage.api:app --reload --port 8000
 ```
 
 `seed_demo.py` fills the database with about 100 realistic demo requests
-(it empties the database first).
+(it empties the database first). At most 8 Immediate jobs are left open, a
+few hours old; the rest are recorded as already made safe. Demo data ages
+as the days pass, so seed again before a demo.
 
 ### 3. Web app (in a second terminal)
 
@@ -203,7 +205,7 @@ python scripts/run_scenarios.py
 python scripts/run_eval.py
 ```
 
-The first runs 492 tests on an in-memory database, so no server is needed.
+The first runs 496 tests on an in-memory database, so no server is needed.
 The second runs the 16 demo scenarios in [TEST_CASES.md](TEST_CASES.md). The
 third scores reading against the 12,000-row dataset in `data/`.
 
@@ -257,7 +259,7 @@ frontend/            Next.js web app (presentation only; calls the API)
 config/policy.yaml   Every weight and threshold
 reference/           Communities, road network, crews, road status
 scripts/             Seeding, evaluation, scenario runner, data builders
-tests/               492 tests
+tests/               496 tests
 docs/DESIGN.md       Design notes, test findings, evaluation
 ```
 
