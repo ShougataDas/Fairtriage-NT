@@ -5,6 +5,11 @@ import { usePathname } from "next/navigation";
 import { House } from "lucide-react";
 import { cx } from "@/lib/format";
 
+/** Fired when a nav link for the page already open is clicked. Next.js does not
+ * remount a page for a link to itself, so a page with steps (the report form)
+ * listens and starts again, instead of the click appearing to do nothing. */
+export const REOPEN_EVENT = "fairtriage:reopen";
+
 const tenantLinks = [
   { href: "/report", label: "Report a repair" },
   { href: "/track", label: "Track a repair" },
@@ -37,6 +42,9 @@ export function SiteHeader() {
             <Link
               key={l.href}
               href={l.href}
+              onClick={() => {
+                if (path === l.href) window.dispatchEvent(new CustomEvent(REOPEN_EVENT, { detail: l.href }));
+              }}
               aria-current={active(l.href) ? "page" : undefined}
               className={cx(
                 "rounded-lg px-3 py-2 font-bold transition",

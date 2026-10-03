@@ -7,6 +7,7 @@ import { post, type LodgeResult, type Tier } from "@/lib/api";
 import { cx } from "@/lib/format";
 import { CommunityPicker } from "@/components/CommunityPicker";
 import { Docket } from "@/components/Docket";
+import { REOPEN_EVENT } from "@/components/SiteHeader";
 import { Button, ButtonLink, ErrorBox, Field, inputClass } from "@/components/ui";
 
 const EXAMPLES = [
@@ -86,8 +87,19 @@ export default function ReportPage() {
     setText("");
     setAnswer("");
     setResult(null);
+    setError(null);
     setTouched(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
+
+  // "Report a repair" in the header, clicked while already here: a new report
+  useEffect(() => {
+    const onReopen = (e: Event) => {
+      if ((e as CustomEvent<string>).detail === "/report") reset();
+    };
+    window.addEventListener(REOPEN_EVENT, onReopen);
+    return () => window.removeEventListener(REOPEN_EVENT, onReopen);
+  }, []);
 
   return (
     <div ref={top} className="mx-auto flex max-w-2xl scroll-mt-24 flex-col gap-6">
