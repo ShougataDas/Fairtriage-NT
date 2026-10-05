@@ -65,3 +65,20 @@ def test_xlsx_opens_with_headers_and_rows():
 
 def test_bad_format_is_refused():
     assert c.get("/api/export?format=pdf").status_code == 422
+
+
+def test_tenant_text_never_becomes_a_spreadsheet_formula():
+    """Regression: '=HYPERLINK(...)' typed by a tenant was exported as a live
+    formula (CSV and Excel). It must arrive as plain text."""
+    import io
+    from openpyxl import load_workbook
+    from fairtriage import export, service
+    from fairtriage.schemas import LodgeIn
+    service.lodge(LodgeIn(text='=HYPERLINK("http://evil","x") the tap drips', community="Darwin (Parap)"))
+    data = export.rows("queue", None, None, None, None)
+    csv = export.to_csv(data).decode("utf-8")
+    assert '"\'=HYPERLINK' in csv or ",'=HYPERLINK" in csv
+    ws = load_workbook(io.BytesIO(export.to_xlsx(data))).active
+    cells = [c.value for row in ws.iter_rows() for c in row if isinstance(c.value, str) and "HYPERLINK" in c.value]
+    assert cells and all(c.startswith("'") for c in cells)
+    assert all(c.data_type != "f" for row in ws.iter_rows() for c in row)

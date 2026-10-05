@@ -170,6 +170,10 @@ ESSENTIAL_RULES = [
     # "no water in the ceiling" is not lost supply; "no water in the house" is
     (r"\bno (running )?water\b(?!\s+(leak\w*|damage|on\b|drip\w*|coming in|stain\w*|in (the )?(ceiling|roof|wall|floor)))"
      r"|\bno water supply\b"
+     # Kriol and Aboriginal English: "no more water come out", "water bin finish"
+     r"|\bno more water\b(?!\s+(leak\w*|damage|drip\w*|com\w* in|get\w* in|on the floor|in (the )?(ceiling|roof|wall|floor)))"
+     r"|\bwater\b.{0,15}\b(bin |been |is |has |all )?finish(ed)?\b"
+     r"|\b(no|nothing|no more)\b.{0,10}\b(water )?(come|comes|coming) out\b"
      r"|\bwater\b.{0,15}\b(stopped|(is|has|gone|are|been) (off|dry))\b"
      r"|\bwater\b.{0,25}\bnot\s+(come|comes|coming|working|running|there)\b(?!\s+in\b)"
      r"|\b(all (the )?taps|the taps|taps) (are|run|have run|have gone|went) dry\b"
@@ -191,7 +195,9 @@ ESSENTIAL_RULES = [
      r"|\b(safety switch|main switch|breaker|circuit breaker|rcd|trip switch)\b.{0,30}"
      r"\b(trip\w*|keeps? (going|turning) off|won'?t (reset|stay on)|will not (reset|stay on))\b"
      r"|\beverything (electrical|electric)\b.{0,20}\b(stopped|off|not working|dead)\b"
-     r"|\bnothing (electrical|electric)\b.{0,15}\b(works?|working|is on|comes? on|turns? on|running)\b", "electrical", True),
+     r"|\bnothing (electrical|electric)\b.{0,15}\b(works?|working|is on|comes? on|turns? on|running)\b"
+     # Kriol: "power bin finish" = the power has gone
+     r"|\b(power|electricity|lights?)\b.{0,15}\b(bin |been |is |has |all )?finish(ed)?\b", "electrical", True),
     (r"\bno hot water\b|\bhot water\b.{0,20}\b(not working|no working|not work|no work|broken|broke|stopped|cold|dead|failed|gone)\b"
      r"|\bonly cold water\b|\bcold (water|showers?) only\b|\bshowers? (only )?(runs?|is|are) (only )?cold\b"
      r"|\b(hot water (system|unit|service|tank)|water heater|hws)\b.{0,25}"
@@ -201,6 +207,7 @@ ESSENTIAL_RULES = [
      r"keeps? going off|won'?t stop|missing|fell|dead|removed|no power|faulty)\b"
      r"|\bno smoke (alarm|detector)\b", "electrical", True),
     (r"\b(can ?not|cant|can't|unable to)\b.{0,10}\bcook\b|\bnone of the (stove|burners)\b"
+     r"|\bno (other )?(way|means|where|place) to cook\b|\bnothing (else )?to cook (with|on)\b"
      r"|\bwhole stove\b|\bnothing to cook (with|on)\b", "essential", True),
     # "only toilet", in either word order
     (r"\b(only|one|sole|single)\s+toilet\b|\btoilet\b.{0,30}\b(only one|one only|just one)\b"
@@ -573,6 +580,13 @@ class KeywordExtractor:
                 is_active=True, endangers_person=False, essential_service_lost=False,
                 habitability=Habitability.NONE, evidence_phrase=(fault_clause or t)[:200],
                 confidence=Confidence.LOW, missing_decisive_fact=DecisiveFact.NONE)
+
+        # "toilet broke, no flush, only one toilet here": the fault and "only
+        # toilet" sit in different clauses; together they are a lost toilet
+        if (not essential and fault_domain == "sanitation" and fault_failing and "toilet" in low
+                and re.search(r"\b(only|sole|single)\s+toilet\b|\bonly one toilet\b|\bno other toilet\b"
+                              r"|\btoilet\b.{0,30}\b(only one|one only|just one)\b", low)):
+            essential, ess_domain, ess_clause = True, "sanitation", fault_clause
 
         domain = danger_domain or ess_domain or fault_domain
         evidence = danger_clause or ess_clause or fault_clause or t

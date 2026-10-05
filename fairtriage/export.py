@@ -43,7 +43,20 @@ def rows(scope: str = "queue", tier: str | None = None, remote: bool | None = No
     return data
 
 
+def _safe(v):
+    """Tenants type the words; a spreadsheet must never run them. Text that
+    starts like a formula (= + - @, or a tab or carriage return before one)
+    is prefixed with an apostrophe, which Excel and Sheets show as plain text."""
+    if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + v
+    return v
+
+
 def _cell(r: dict, key: str):
+    return _safe(_raw(r, key))
+
+
+def _raw(r: dict, key: str):
     v = r.get(key)
     if key == "evidence":
         v = v or r.get("text", "")

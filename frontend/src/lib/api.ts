@@ -168,6 +168,9 @@ export interface Contact {
   answer: string | null;
   lodged_at: string;
   danger?: boolean;
+  /** the tenant asked a person to review it: their message */
+  review?: string | null;
+  tier?: Tier | null;
 }
 
 export interface CommunityGroup {

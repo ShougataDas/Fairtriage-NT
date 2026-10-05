@@ -75,6 +75,12 @@ def lodge(inp: LodgeIn, lodged_at: str | None = None) -> dict:
     return _after_run(rid, out)
 
 
+def _thread(req: dict) -> dict:
+    """The assessment run behind a request: its own id, or the newest
+    reassessment after a staff question was answered."""
+    return G.config_for(req.get("thread_id") or req["_id"])
+
+
 def clarify(request_id: str, answer: str) -> dict:
     req = db.get_request(request_id)
     if req is None:
@@ -82,8 +88,30 @@ def clarify(request_id: str, answer: str) -> dict:
     if req["status"] != "awaiting_tenant":
         raise Invalid(f"{request_id} is not waiting for an answer (status {req['status']})")
     db.update_request(request_id, {"clarification_a": answer})
-    out = G.app().invoke(Command(resume=answer), G.config_for(request_id))
+    if req.get("staff_question"):
+        return _answer_staff_question(req, answer)
+    out = G.app().invoke(Command(resume=answer), _thread(req))
     return _after_run(request_id, out)
+
+
+def _answer_staff_question(req: dict, answer: str) -> dict:
+    """A coordinator asked the tenant something. The answer is read together
+    with the report and the job is assessed again at once: an answer that
+    reveals danger ("actually it is sparking") moves it up straight away."""
+    rid, q = req["_id"], req.get("clarification_q") or ""
+    n = len(req.get("staff_questions") or []) + 1
+    thread = f"{rid}#staff{n}"
+    original = req["text_original"]
+    initial = {"request_id": rid, "text_original": original,
+               "text_current": f"{original} {answer}".strip(),
+               "rounds": policy()["extraction"]["max_clarification_rounds"],
+               "vulnerability": req["dwelling"].get("vulnerability") or [],
+               "flags": [], "clarification": [q, answer], "clarification_resolved": True}
+    db.col(REQUESTS).update_one({"_id": rid}, {
+        "$set": {"thread_id": thread, "staff_question": False},
+        "$push": {"staff_questions": {"question": q, "answer": answer, "at": now()}}})
+    out = G.app().invoke(initial, G.config_for(thread))
+    return _after_run(rid, out)
 
 
 def _after_run(rid: str, out: dict) -> dict:
@@ -209,6 +237,11 @@ def decide(request_id: str, d: DecisionIn) -> dict:
         raise Invalid("no assessment to decide on")
     from_tier = req["assessment"]["tier"]
 
+    if d.action == "request_info":
+        if not d.reason or len(d.reason.strip()) < 5:
+            raise Invalid("write the question the tenant should answer")
+        if req["status"] in ("scheduled", "completed"):
+            raise Invalid(f"{request_id} is {req['status']}: change its trip first")
     if d.action == "override":
         if not d.reason or len(d.reason.strip()) < 5:
             raise Invalid("an override needs a reason the tenant will be shown")
@@ -219,16 +252,21 @@ def decide(request_id: str, d: DecisionIn) -> dict:
             raise Invalid("downgrading an Immediate job needs a second reviewer; "
                           "name them in the reason")
 
+    if req.get("review_requested"):
+        db.update_request(request_id, {"review_requested": False, "review_resolved_at": now()})
     db.append(DECISIONS, {"request_id": request_id, "actor": d.actor, "action": d.action,
                           "from_tier": from_tier, "to_tier": d.to_tier or from_tier,
                           "reason": d.reason})
     if d.action == "approve":
         db.update_request(request_id, {"status": "approved"})
     elif d.action == "request_info":
-        db.update_request(request_id, {"status": "awaiting_tenant"})
+        # the reason IS the question the tenant sees and answers
+        db.update_request(request_id, {"status": "awaiting_tenant", "staff_question": True,
+                                       "clarification_q": d.reason.strip(),
+                                       "clarification_a": None})
 
     if d.action == "override":
-        st = G.app().get_state(G.config_for(request_id)).values
+        st = G.app().get_state(_thread(req)).values
         return finalise(request_id, st, override={"to_tier": d.to_tier,
                                                   "reason": d.reason.strip(),
                                                   "actor": d.actor})
@@ -410,11 +448,15 @@ def contact_list() -> list[dict]:
     """Reports a person must follow up by phone: still unclear after asking,
     or a withdrawal that may mean the tenant gave up. Shown above the queue."""
     rows = db.col(REQUESTS).find(
-        {"status": {"$in": ["needs_phone_call", "awaiting_confirmation"]}}).sort("lodged_at", 1)
+        {"$or": [{"status": {"$in": ["needs_phone_call", "awaiting_confirmation"]}},
+                 {"review_requested": True}]}).sort("lodged_at", 1)
     out = [{"request_id": r["_id"], "community": r["dwelling"]["community"],
             "address": r["dwelling"].get("address"), "phone": r["dwelling"].get("phone"),
             "status": r["status"], "text": r["text_original"],
             "answer": r.get("clarification_a"), "lodged_at": r["lodged_at"],
+            "review": (((r.get("review_requests") or [{}])[-1].get("message") or "(no message)")
+                       if r.get("review_requested") else None),
+            "tier": (r.get("assessment") or {}).get("tier"),
             "danger": any(fl.get("code") == "emergency_000"
                           for fl in ((r.get("assessment") or {}).get("flags") or []))}
            for r in rows]

@@ -112,7 +112,7 @@ export default function QueuePage() {
       {contacts && contacts.length > 0 && (
         <Card className="border-urgent/30">
           <CardTitle icon={<Phone className="size-5 text-urgent" aria-hidden />}>Needs a phone call</CardTitle>
-          <p className="-mt-2 mb-3 text-muted">Danger to a person comes first. Then reports still unclear after asking once, or a tenant who may have given up. These never leave by themselves.</p>
+          <p className="-mt-2 mb-3 text-muted">Danger to a person comes first. Then tenants who asked for a review, reports still unclear after asking once, or a tenant who may have given up. These never leave by themselves: a review clears when you record a decision on it.</p>
           <ul className="divide-y divide-line">
             {contacts.map((c) => (
               <li key={c.request_id}>
@@ -120,12 +120,16 @@ export default function QueuePage() {
                   <span className="font-mono text-sm">{c.request_id}</span>
                   {c.danger ? (
                     <Pill tone="bad">Danger reported · check 000 was called</Pill>
+                  ) : c.review ? (
+                    <Pill tone="warn">Tenant asked for a review{c.tier ? ` · ${c.tier}` : ""}</Pill>
                   ) : (
                     <Pill tone="warn">{c.status === "needs_phone_call" ? "Still unclear" : "Withdrawal to confirm"}</Pill>
                   )}
                   <span className="text-muted">{[c.address, c.community].filter(Boolean).join(", ")}</span>
                   {c.phone && <span className="font-bold text-ink">{c.phone}</span>}
-                  <span className="min-w-0 flex-1 truncate italic">“{c.text}”{c.answer && ` → “${c.answer}”`}</span>
+                  <span className="min-w-0 flex-1 truncate italic">
+                    {c.review ? `Review: “${c.review}” · ` : ""}“{c.text}”{c.answer && !c.review && ` → “${c.answer}”`}
+                  </span>
                   <span className="text-sm text-muted">{ago(c.lodged_at)}</span>
                 </Link>
               </li>

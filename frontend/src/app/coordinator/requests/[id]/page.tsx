@@ -285,7 +285,14 @@ function DecisionPanel({ id, current, onDone }: { id: string; current: Tier; onD
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="reason" className="font-bold">
-          Reason {action === "override" ? <span className="font-normal text-immediate">required · the tenant is shown this</span> : <span className="font-normal text-muted">optional</span>}
+          {action === "request_info" ? "Question for the tenant" : "Reason"}{" "}
+          {action === "override" ? (
+            <span className="font-normal text-immediate">required · the tenant is shown this</span>
+          ) : action === "request_info" ? (
+            <span className="font-normal text-immediate">required · the tenant answers it, and the job is assessed again</span>
+          ) : (
+            <span className="font-normal text-muted">optional</span>
+          )}
         </label>
         <textarea id="reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={400} className={inputClass} />
         {downgrade && (
@@ -297,7 +304,11 @@ function DecisionPanel({ id, current, onDone }: { id: string; current: Tier; onD
 
       {error != null && <ErrorBox error={error} />}
       {saved && <p role="status" className="flex items-center gap-2 font-bold text-routine"><CircleCheck className="size-5" aria-hidden /> {saved}</p>}
-      <Button type="submit" busy={busy} disabled={action === "override" && (!toTier || reason.trim().length < 5)}>
+      <Button
+        type="submit"
+        busy={busy}
+        disabled={(action === "override" && (!toTier || reason.trim().length < 5)) || (action === "request_info" && reason.trim().length < 5)}
+      >
         Record decision
       </Button>
     </form>

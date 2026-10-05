@@ -127,6 +127,28 @@ that is up to 75 days against a 25-day target; the estimate shows it rather
 than hide it. Lowering that multiple is the lever, and a decision for the
 department.
 
+## A tenant asks why
+
+`fairtriage/askwhy.py`, behind `POST /api/requests/{id}/why`. The answer is
+assembled from the record and today's queue, never generated free text, so
+every number is one the system holds:
+
+1. the group and its reason, and what the group means;
+2. how many repairs are ahead and why each is ahead: a more dangerous group,
+   the same group with more need, or the same need reported earlier; and how
+   many of those were reported later but go first, "nobody goes ahead
+   because they live closer";
+3. today's place, the same as the identical repair in Darwin, and the live
+   wait, with travel named as part of WHEN, never of WHO;
+4. what changed: staff decisions quoted with their reason (a repair moved
+   down says so, and why), trips that were full, the wait told against today;
+5. what would move it up, and how to reach a person.
+
+It passes the same no-apology, no-promise rule as every tenant text.
+`POST /api/requests/{id}/review` records a review request; it sits on the
+coordinator's phone list with the tenant's message until a decision is
+recorded on the request.
+
 ## Which crew goes
 
 The crew that reaches the destination soonest, from any depot: when it

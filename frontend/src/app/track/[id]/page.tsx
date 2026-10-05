@@ -7,11 +7,16 @@ import { ArrowRight, CalendarClock, CircleCheck, Clock, Truck } from "lucide-rea
 import { fetcher, post, type RequestView } from "@/lib/api";
 import { cx, day, statusLabel, when } from "@/lib/format";
 import { Docket } from "@/components/Docket";
+import { AskWhy } from "@/components/AskWhy";
 import { Button, ButtonLink, Empty, ErrorBox, Spinner, inputClass } from "@/components/ui";
 
 export default function TrackRecord() {
   const { id } = useParams<{ id: string }>();
-  const { data, error, isLoading, mutate } = useSWR<RequestView>(`/api/requests/${id}`, fetcher, { refreshInterval: 30000 });
+  const { data, error, isLoading, mutate } = useSWR<RequestView>(`/api/requests/${id}`, fetcher, {
+    refreshInterval: 30000,
+    // a wrong reference is an answer, not a network blip: show it at once
+    shouldRetryOnError: (err: { status?: number }) => err?.status !== 404,
+  });
 
   if (isLoading) return <Spinner label="Finding your repair" />;
   if (error) {
@@ -72,6 +77,8 @@ export default function TrackRecord() {
           toldOn={data.wait_now ? day(a.created_at) : undefined}
         />
       )}
+
+      {a && data.status !== "awaiting_tenant" && <AskWhy id={data.request_id} />}
     </div>
   );
 }

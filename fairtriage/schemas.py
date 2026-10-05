@@ -202,6 +202,14 @@ class ClarifyIn(BaseModel):
     answer: str = Field(min_length=1, max_length=500)
 
 
+class WhyIn(BaseModel):
+    question: Optional[str] = Field(default=None, max_length=500)
+
+
+class ReviewIn(BaseModel):
+    message: Optional[str] = Field(default=None, max_length=500)
+
+
 class TripChangeIn(BaseModel):
     reason: Optional[str] = Field(default=None, max_length=400)
     request_id: Optional[str] = None

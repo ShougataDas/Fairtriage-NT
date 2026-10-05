@@ -160,3 +160,28 @@ def test_every_light_or_socket_out_is_a_lost_supply(text):
 def test_nothing_works_is_asked_about_not_dismissed(text, kind):
     from fairtriage.extract import KeywordExtractor
     assert KeywordExtractor().extract(text).actionability.value == kind, text
+
+
+# Found by the release audit: Aboriginal English and Kriol phrasings, and a
+# lost-cooking phrasing, were under-ranked or dismissed.
+@pytest.mark.parametrize("text", [
+    "toilet im broke, no flush, only one toilet here",     # "only toilet" in another clause
+    "power bin finish whole house",                         # Kriol: the power has gone
+    "no more water come out tap",                           # was dismissed as resolved
+    "water bin finish",
+    "the stove is not working and there is no other way to cook",
+])
+def test_lost_essential_services_in_other_words(text):
+    from fairtriage.extract import KeywordExtractor
+    e = KeywordExtractor().extract(text)
+    assert e.actionability.value == "repair" and e.essential_service_lost, text
+
+
+@pytest.mark.parametrize("text", [
+    "no more water leaking now",
+    "the tap was fixed, no more water leaking anymore",
+    "I finished cooking, the stove is fine",
+])
+def test_no_more_and_finished_that_are_not_a_lost_service(text):
+    from fairtriage.extract import KeywordExtractor
+    assert not KeywordExtractor().extract(text).essential_service_lost, text

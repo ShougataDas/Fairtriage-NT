@@ -17,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 from . import metrics, scheduler, service
 from .config import policy, reader_status
 from .reference import communities, road_km, trade_capacity
-from .schemas import ClarifyIn, DecisionIn, LodgeIn, TripChangeIn
+from .schemas import ClarifyIn, DecisionIn, LodgeIn, ReviewIn, TripChangeIn, WhyIn
 
 WEB = Path(__file__).parent / "web"
 app = FastAPI(title="FairTriage NT", version="3.0")
@@ -79,6 +79,26 @@ def api_clarify(rid: str, inp: ClarifyIn):
         raise HTTPException(404, "no such request")
     except service.Invalid as e:
         raise HTTPException(409, str(e))
+
+
+@app.post("/api/requests/{rid}/why")
+def api_why(rid: str, inp: WhyIn):
+    """The tenant asks why their repair is where it is; a real answer from the record."""
+    from . import askwhy
+    try:
+        return askwhy.answer(rid, inp.question)
+    except askwhy.NotFound:
+        raise HTTPException(404, "no such request")
+
+
+@app.post("/api/requests/{rid}/review")
+def api_review(rid: str, inp: ReviewIn):
+    """The tenant asks a person to review it: goes on the coordinator's phone list."""
+    from . import askwhy
+    try:
+        return askwhy.request_review(rid, inp.message)
+    except askwhy.NotFound:
+        raise HTTPException(404, "no such request")
 
 
 @app.post("/api/requests/{rid}/decision")
