@@ -4,6 +4,7 @@ import useSWR from "swr";
 import { fetcher, type Equity } from "@/lib/api";
 import { TIERS, cx, tierStyle } from "@/lib/format";
 import { Card, CardTitle, ErrorBox, PageHeader, Spinner } from "@/components/ui";
+import { TripPolicy } from "@/components/TripPolicy";
 
 export default function FairnessPage() {
   const { data: m, error, isLoading, mutate } = useSWR<Equity>("/api/metrics/equity", fetcher, { refreshInterval: 30000 });
@@ -57,6 +58,7 @@ export default function FairnessPage() {
               })}
             </div>
           </Card>
+          <TripPolicy />
           <p className="text-sm text-muted">Crew numbers per region are placeholders and distances are estimates, so treat the wait figures as illustrative until real capacity data is supplied.</p>
         </>
       )}

@@ -125,7 +125,12 @@ job of the same trade is open there, otherwise when the community's oldest job
 reaches `community_threshold_multiple` times its target. At the current 3.0
 that is up to 75 days against a 25-day target; the estimate shows it rather
 than hide it. Lowering that multiple is the lever, and a decision for the
-department.
+department: the **Fairness page** shows, for each value from 1x to 4x, the
+longest and average remote routine wait, the ratio to Darwin, the trips a
+month and their cost (`fairtriage/whatif.py`), and lets a coordinator set it
+with a recorded reason (`fairtriage/tripsettings.py`). The planner and every
+live remote wait follow at once: a job already waiting moves by the change
+times the target.
 
 ## A tenant asks why
 

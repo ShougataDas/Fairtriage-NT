@@ -458,7 +458,8 @@ def next_trip_days(community: str, trade: str, tier: str, target_days: float,
             and j.request_id != exclude]
     if any(j.tier in ("Immediate", "Urgent") for j in same):
         return 0.0
-    mult = _cfg()["community_threshold_multiple"]
+    from .tripsettings import threshold
+    mult = threshold()            # the coordinator's setting, or the policy file's
     until = [mult * j.target_days - j.days_open for j in same] + [mult * target_days]
     return max(min(until), 0.0)
 
@@ -502,7 +503,8 @@ def _triggers(jobs: list[Job]) -> list[tuple[Job, str, str]]:
                 anchors.append((j, "urgent_anchor", f"{j.tier} job forces a trip"))
                 anchored.add((comm, j.trade))
 
-    mult = _cfg()["community_threshold_multiple"]
+    from .tripsettings import threshold
+    mult = threshold()            # the coordinator's setting, or the policy file's
     for comm, js in by_comm.items():
         oldest = max(js, key=lambda j: j.days_open / max(j.target_days, 0.1))
         ratio = oldest.days_open / max(oldest.target_days, 0.1)

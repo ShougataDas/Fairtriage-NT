@@ -17,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 from . import metrics, scheduler, service
 from .config import policy, reader_status
 from .reference import communities, road_km, trade_capacity
-from .schemas import ClarifyIn, DecisionIn, LodgeIn, ReviewIn, TripChangeIn, WhyIn
+from .schemas import ClarifyIn, DecisionIn, LodgeIn, ReviewIn, ThresholdIn, TripChangeIn, WhyIn
 
 WEB = Path(__file__).parent / "web"
 app = FastAPI(title="FairTriage NT", version="3.0")
@@ -175,7 +175,9 @@ def api_trips():
 def api_trip_preview():
     """The recommended trips right now. Recomputed on every call, so it follows
     the queue, priorities and crew locations as they change. Stores nothing."""
-    return {"teams": scheduler.team_locations(), "rules": policy()["trips"],
+    from .tripsettings import threshold
+    return {"teams": scheduler.team_locations(),
+            "rules": {**policy()["trips"], "community_threshold_multiple": threshold()},
             "trips": [scheduler.to_dict(t) for t in scheduler.plan(commit=False)]}
 
 
@@ -221,6 +223,25 @@ def api_team(trade_region: str, location: str):
     except ValueError as e:
         raise HTTPException(422, str(e))
     return scheduler.team_locations()
+
+
+@app.get("/api/policy/trip-threshold")
+def api_threshold_whatif():
+    """What each trip-threshold setting means for remote waits, trips and cost."""
+    from . import whatif
+    return whatif.scenarios()
+
+
+@app.post("/api/policy/trip-threshold")
+def api_set_threshold(inp: ThresholdIn):
+    """A coordinator sets the trip threshold, with a reason. Recorded."""
+    from . import tripsettings
+    try:
+        tripsettings.set_threshold(inp.multiple, inp.reason, inp.actor)
+    except tripsettings.Invalid as e:
+        raise HTTPException(422, str(e))
+    from . import whatif
+    return whatif.scenarios()
 
 
 @app.get("/api/metrics/equity")
@@ -350,13 +371,14 @@ def coord_queue(request: HttpRequest, order: str = "need", tier: str = "",
 
 @app.get("/coordinator/trips", response_class=HTMLResponse)
 def coord_trips(request: HttpRequest, error: str = ""):
+    from .tripsettings import threshold
     t = policy()["trips"]
     return T.TemplateResponse(request, "coord_trips.html", {
         "section": "trips", "error": error,
         "preview": [scheduler.to_dict(p) for p in scheduler.plan(commit=False)],
         "trips": scheduler.trips_view(), "teams": scheduler.team_locations(),
         "community_groups": _community_groups(), "t": t, "r": t["routing"],
-        "multiple": t["community_threshold_multiple"]})
+        "multiple": threshold()})
 
 
 @app.post("/coordinator/team")

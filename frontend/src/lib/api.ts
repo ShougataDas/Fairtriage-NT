@@ -252,6 +252,31 @@ export interface TripPlan {
   workday_hours: number;
 }
 
+export interface ThresholdScenario {
+  multiple: number;
+  interval_days: number;
+  wait_max_days: number | null;
+  wait_avg_days: number | null;
+  ratio_vs_darwin: number | null;
+  trips_per_month: number;
+  cost_month_low: number;
+  cost_month_high: number;
+  current: boolean;
+}
+
+/** The trip threshold: what each setting means, and the one in force. */
+export interface TripThreshold {
+  setting: { value: number; source: "coordinator" | "policy file"; actor: string | null; reason: string | null; at: string | null; file_value: number };
+  history: { from: number; to: number; actor: string; reason: string; at: string }[];
+  limits: [number, number];
+  target_days: number;
+  darwin_routine_days: number;
+  remote_routine_open: number;
+  communities: number;
+  scenarios: ThresholdScenario[];
+  assumptions: string[];
+}
+
 /** Probable cost of a whole trip, [low, high] AUD ex GST. Never used for priority. */
 export interface TripCost {
   low: number;

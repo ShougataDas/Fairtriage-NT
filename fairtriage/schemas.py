@@ -210,6 +210,12 @@ class ReviewIn(BaseModel):
     message: Optional[str] = Field(default=None, max_length=500)
 
 
+class ThresholdIn(BaseModel):
+    multiple: float
+    reason: Optional[str] = Field(default=None, max_length=400)
+    actor: str = "coordinator-demo"
+
+
 class TripChangeIn(BaseModel):
     reason: Optional[str] = Field(default=None, max_length=400)
     request_id: Optional[str] = None

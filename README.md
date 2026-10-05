@@ -14,7 +14,7 @@ Built for the CDU IT Code Fair, Trusted AI decision-support challenge.
 ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-database-47A248?logo=mongodb&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-533%20passing-2f6b4f)
+![Tests](https://img.shields.io/badge/tests-542%20passing-2f6b4f)
 
 ---
 
@@ -104,6 +104,12 @@ flowchart LR
   coordinator's phone list until someone records a decision.
 - **Staff ask the tenant.** "Ask tenant" sends the coordinator's question; the
   answer is read with the report and the job is assessed again at once.
+- **Trip policy what-if.** On the Fairness page a coordinator moves a slider
+  and sees what each trip threshold means: how long remote routine work waits,
+  how that compares with Darwin, how many trips a month and what they cost.
+  They set it with a reason; it is recorded, and the planner and every live
+  remote wait follow at once. The cheaper-town-first trade-off, priced and
+  owned by a person.
 - **Trip cost.** Each recommended trip shows a probable cost range: fuel,
   vehicle running costs and charter flights; accommodation, meals, freight
   and local vehicle hire; labour for every person for travel and on-site
@@ -219,7 +225,7 @@ python scripts/run_scenarios.py
 python scripts/run_eval.py
 ```
 
-The first runs 533 tests on an in-memory database, so no server is needed.
+The first runs 542 tests on an in-memory database, so no server is needed.
 The second runs the 16 demo scenarios in [TEST_CASES.md](TEST_CASES.md). The
 third scores reading against the 12,000-row dataset in `data/`.
 
@@ -273,7 +279,7 @@ frontend/            Next.js web app (presentation only; calls the API)
 config/policy.yaml   Every weight and threshold
 reference/           Communities, road network, crews, road status
 scripts/             Seeding, evaluation, scenario runner, data builders
-tests/               533 tests
+tests/               542 tests
 docs/DESIGN.md       Design notes, test findings, evaluation
 ```
 

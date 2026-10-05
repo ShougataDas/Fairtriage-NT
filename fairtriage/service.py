@@ -163,6 +163,9 @@ def finalise(rid: str, st: dict, override: dict | None = None) -> dict:
     wait = (estimate(community, tier, pos.hours_ahead, pos.hours_ahead_darwin, trade=trade,
                      trip_wait_days=trip_wait, jobs_ahead=pos.jobs_ahead_trade,
                      jobs_ahead_darwin=pos.jobs_ahead_darwin_trade) if pos else None)
+    if wait and trip_wait is not None:
+        from .tripsettings import threshold
+        wait.breakdown["threshold_multiple"] = threshold()
     if wait and tier == "Immediate" and backlog_late(wait.high * 24, wait.central * 24,
                                                      wait.breakdown["queue_days"] * 24):
         flags.append({"code": "immediate_over_target",
@@ -307,7 +310,14 @@ def live_wait(req: dict, jobs=None) -> dict | None:
     told = ((a.get("facts") or {}).get("wait") or {}).get("breakdown") or {}
     trip_wait = told.get("trip_wait_days")
     if trip_wait is not None:
-        trip_wait = max(trip_wait - days_open, 0.0)
+        # the trip date was set by the threshold in force when it was lodged;
+        # if a coordinator has changed it since, every trip date moves by the
+        # change times the target
+        from .tripsettings import file_value, threshold
+        then = told.get("threshold_multiple") or file_value()
+        c = communities()[community]
+        target = policy()["service_targets_days"][a["tier"]]["remote" if c.remote else "urban"]
+        trip_wait = max(trip_wait - days_open + (threshold() - then) * target, 0.0)
     w = estimate(community, a["tier"], pos.hours_ahead, pos.hours_ahead_darwin, trade=trade,
                  trip_wait_days=trip_wait, elapsed_days=days_open,
                  jobs_ahead=pos.jobs_ahead_trade, jobs_ahead_darwin=pos.jobs_ahead_darwin_trade)
