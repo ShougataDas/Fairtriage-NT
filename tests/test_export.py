@@ -82,3 +82,24 @@ def test_tenant_text_never_becomes_a_spreadsheet_formula():
     cells = [c.value for row in ws.iter_rows() for c in row if isinstance(c.value, str) and "HYPERLINK" in c.value]
     assert cells and all(c.startswith("'") for c in cells)
     assert all(c.data_type != "f" for row in ws.iter_rows() for c in row)
+
+
+
+def test_download_filters_by_several_priorities_and_past_target():
+    """The queue's priority filter: any mix of tiers, and past target only."""
+    from datetime import datetime, timedelta, timezone
+    from fairtriage import export, service
+    from fairtriage.schemas import LodgeIn
+
+    def ago(d):
+        return (datetime.now(timezone.utc) - timedelta(days=d)).isoformat(timespec="seconds")
+
+    service.lodge(LodgeIn(text="the power point is sparking", community="Darwin (Parap)"))
+    service.lodge(LodgeIn(text="the only toilet is blocked and will not flush", community="Darwin (Parap)"),
+                  lodged_at=ago(9))                                   # Urgent, past its 2-day target
+    service.lodge(LodgeIn(text="the kitchen tap is dripping", community="Darwin (Parap)"))
+    both = export.rows("queue", "Immediate,Urgent")
+    assert sorted(r["tier"] for r in both) == ["Immediate", "Urgent"]
+    late = export.rows("queue", None, past=True)
+    assert [r["tier"] for r in late] == ["Urgent"] and all(r["past_target"] for r in late)
+    assert len(export.rows("queue")) == 3

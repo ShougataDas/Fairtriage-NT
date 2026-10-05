@@ -132,12 +132,12 @@ def api_queue(tier: Optional[str] = None, community: Optional[str] = None,
 @app.get("/api/export")
 def api_export(format: str = "csv", scope: str = "queue", tier: Optional[str] = None,
                remote: Optional[bool] = None, q: Optional[str] = None,
-               area: Optional[str] = None):
+               area: Optional[str] = None, past: Optional[bool] = None):
     """Download requests as CSV or Excel. scope=queue (ranked, as on screen) or all."""
     from . import export
     if format not in ("csv", "xlsx") or scope not in ("queue", "all"):
         raise HTTPException(422, "format must be csv or xlsx; scope must be queue or all")
-    data = export.rows(scope, tier or None, remote, q, area or None)
+    data = export.rows(scope, tier or None, remote, q, area or None, past)
     body = export.to_csv(data) if format == "csv" else export.to_xlsx(
         data, "Queue" if scope == "queue" else "All requests")
     media = ("text/csv; charset=utf-8" if format == "csv" else

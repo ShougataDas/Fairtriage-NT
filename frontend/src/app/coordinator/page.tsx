@@ -14,7 +14,10 @@ type Order = "need" | "cost";
 
 export default function QueuePage() {
   const [order, setOrder] = useState<Order>("need");
-  const [tier, setTier] = useState<Tier | "">("");
+  // priority filter: any mix of tiers (none = all), and past target only
+  const [tiers, setTiers] = useState<Tier[]>([]);
+  const [pastOnly, setPastOnly] = useState(false);
+  const toggleTier = (t: Tier) => setTiers((cur) => (cur.includes(t) ? cur.filter((x) => x !== t) : [...cur, t]));
   const [q, setQ] = useState("");
   const [onlyRemote, setOnlyRemote] = useState(false);
   const [area, setArea] = useState("");
@@ -28,12 +31,13 @@ export default function QueuePage() {
     const needle = q.trim().toLowerCase();
     return (rows ?? []).filter(
       (r) =>
-        (!tier || r.tier === tier) &&
+        (tiers.length === 0 || tiers.includes(r.tier)) &&
+        (!pastOnly || r.past_target) &&
         (!area || r.area === area) &&
         (!onlyRemote || r.remote) &&
         (!needle || [r.request_id, r.community, r.text, r.trade].some((f) => f.toLowerCase().includes(needle))),
     );
-  }, [rows, tier, q, onlyRemote, area]);
+  }, [rows, tiers, pastOnly, q, onlyRemote, area]);
 
   const counts = useMemo(() => {
     const c = { Immediate: 0, Urgent: 0, Routine: 0, past: 0 };
@@ -68,14 +72,22 @@ export default function QueuePage() {
             label={t}
             value={counts[t]}
             tone={tierStyle[t]}
-            active={tier === t}
-            onClick={() => setTier(tier === t ? "" : t)}
+            active={tiers.includes(t)}
+            onClick={() => toggleTier(t)}
           />
         ))}
-        <div className="rounded-2xl border border-line bg-paper p-4">
+        <button
+          onClick={() => setPastOnly((v) => !v)}
+          aria-pressed={pastOnly}
+          className={cx(
+            "rounded-2xl border p-4 text-left transition hover:shadow-sm",
+            pastOnly ? "border-transparent bg-urgent-soft ring-2 ring-ink" : "border-line bg-paper",
+          )}
+        >
           <p className="flex items-center gap-1.5 text-sm font-bold text-muted"><Hourglass className="size-4" aria-hidden /> Past target</p>
           <p className="mt-1 text-3xl font-bold">{counts.past}</p>
-        </div>
+          <p className="text-xs text-muted">{pastOnly ? "Showing only these · click to clear" : "Click to filter"}</p>
+        </button>
         <div className="rounded-2xl border border-line bg-paper p-4">
           <p className="flex items-center gap-1.5 text-sm font-bold text-muted"><Phone className="size-4" aria-hidden /> To phone</p>
           <p className="mt-1 text-3xl font-bold">{contacts?.length ?? "—"}</p>
@@ -149,7 +161,7 @@ export default function QueuePage() {
         />
       )}
 
-      <DownloadMenu tier={tier} remote={onlyRemote} q={q} area={area} />
+      <DownloadMenu tier={TIERS.filter((t) => tiers.includes(t)).join(",")} remote={onlyRemote} q={q} area={area} past={pastOnly} />
 
       <Card id="queue-table" className="scroll-mt-24 p-0 sm:p-0">
         {area && (
@@ -158,6 +170,65 @@ export default function QueuePage() {
             <button onClick={() => setArea("")} className="font-bold text-ink underline">Show all areas</button>
           </div>
         )}
+
+        <div role="group" aria-label="Filter by priority" className="flex flex-wrap items-center gap-2 border-b border-line p-4">
+          <span className="mr-1 text-sm font-bold">Priority</span>
+          <button
+            onClick={() => setTiers([])}
+            aria-pressed={tiers.length === 0}
+            className={cx(
+              "rounded-full border-2 px-3 py-1 text-sm font-bold transition",
+              tiers.length === 0 ? "border-ink bg-ink text-white" : "border-line text-muted hover:border-ink hover:text-ink",
+            )}
+          >
+            All <span className="font-normal opacity-80">{(rows ?? []).length}</span>
+          </button>
+          {TIERS.map((t) => {
+            const on = tiers.includes(t);
+            return (
+              <button
+                key={t}
+                onClick={() => toggleTier(t)}
+                aria-pressed={on}
+                className={cx(
+                  "inline-flex items-center gap-1.5 rounded-full border-2 px-3 py-1 text-sm font-bold transition",
+                  on ? cx("border-transparent ring-2 ring-ink", tierStyle[t].soft, tierStyle[t].text) : "border-line text-graphite hover:border-ink",
+                )}
+              >
+                <span className={cx("size-2 rounded-full", tierStyle[t].dot)} aria-hidden />
+                {t} <span className="font-normal opacity-80">{counts[t]}</span>
+              </button>
+            );
+          })}
+          <span className="mx-1 h-5 w-px bg-line" aria-hidden />
+          <button
+            onClick={() => setPastOnly((v) => !v)}
+            aria-pressed={pastOnly}
+            className={cx(
+              "inline-flex items-center gap-1.5 rounded-full border-2 px-3 py-1 text-sm font-bold transition",
+              pastOnly ? "border-transparent bg-urgent-soft text-urgent ring-2 ring-ink" : "border-line text-graphite hover:border-ink",
+            )}
+          >
+            <Hourglass className="size-3.5" aria-hidden /> Past target <span className="font-normal opacity-80">{counts.past}</span>
+          </button>
+          {(tiers.length > 0 || pastOnly) && (
+            <span className="ml-auto flex items-center gap-3 text-sm">
+              <span>
+                Showing <strong>{tiers.length ? TIERS.filter((t) => tiers.includes(t)).join(" + ") : "all priorities"}</strong>
+                {pastOnly && <strong>, past target only</strong>}: {shown.length} repair{shown.length === 1 ? "" : "s"}
+              </span>
+              <button
+                onClick={() => {
+                  setTiers([]);
+                  setPastOnly(false);
+                }}
+                className="font-bold text-ink underline"
+              >
+                Clear
+              </button>
+            </span>
+          )}
+        </div>
         <div className="flex flex-col gap-3 border-b border-line p-4 lg:flex-row lg:items-center">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted" aria-hidden />

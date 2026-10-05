@@ -28,10 +28,16 @@ TIER_FILL = {"Immediate": "FDECEA", "Urgent": "FDF3E2", "Routine": "E8F3ED"}
 
 
 def rows(scope: str = "queue", tier: str | None = None, remote: bool | None = None,
-         q: str | None = None, area: str | None = None) -> list[dict]:
-    data = queue_view(tier) if scope == "queue" else all_requests_view()
-    if scope != "queue" and tier:
-        data = [r for r in data if r.get("tier") == tier]
+         q: str | None = None, area: str | None = None,
+         past: bool | None = None) -> list[dict]:
+    """`tier`: one tier, or several separated by commas ("Immediate,Urgent").
+    `past`: only jobs past their service target."""
+    data = queue_view() if scope == "queue" else all_requests_view()
+    tiers = {t.strip() for t in (tier or "").split(",") if t.strip()}
+    if tiers:
+        data = [r for r in data if r.get("tier") in tiers]
+    if past:
+        data = [r for r in data if r.get("past_target")]
     if area:
         data = [r for r in data if r.get("area") == area]
     if remote is not None:
