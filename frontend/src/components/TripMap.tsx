@@ -10,14 +10,42 @@ import { hoursOrDays } from "@/lib/format";
 const TIER_HEX: Record<string, string> = { Immediate: "#b3261e", Urgent: "#9a5a00", Routine: "#2f6b4f" };
 const INK = "#2b3a8f";
 
-function pin(label: string, colour: string, shape: "circle" | "square" = "circle") {
+/** A round or square pin. `dx`/`dy` move it off its point in screen pixels, so
+ *  several repairs in one community fan out around it at every zoom level. */
+function pin(label: string, colour: string, shape: "circle" | "square" = "circle", dx = 0, dy = 0) {
   return L.divIcon({
     className: "",
     iconSize: [30, 30],
-    iconAnchor: [15, 15],
+    iconAnchor: [15 - dx, 15 - dy],
+    tooltipAnchor: [dx, dy - 14],
     html: `<div style="width:30px;height:30px;border-radius:${shape === "circle" ? "50%" : "8px"};background:${colour};
       color:#fff;display:grid;place-items:center;font:700 13px/1 system-ui;border:3px solid #fff;
       box-shadow:0 1px 4px rgba(0,0,0,.4)">${label}</div>`,
+  });
+}
+
+/** The community itself, when it has several repairs: a small dot they fan out
+ *  from. Its label sits to the right of the ring, clear of the pins. */
+function hub(colour: string, labelDx: number) {
+  return L.divIcon({
+    className: "",
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
+    tooltipAnchor: [labelDx, 0],
+    html: `<div style="width:12px;height:12px;border-radius:50%;background:${colour};border:2px solid #fff;
+      box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>`,
+  });
+}
+
+/** Screen offsets for n pins in a ring around their community; one pin sits on it. */
+const ringRadius = (n: number) => (n <= 4 ? 26 : n <= 8 ? 34 : 42);
+
+function ring(n: number): [number, number][] {
+  if (n === 1) return [[0, 0]];
+  const r = ringRadius(n);
+  return Array.from({ length: n }, (_, i) => {
+    const a = -Math.PI / 2 + (2 * Math.PI * i) / n;
+    return [Math.round(r * Math.cos(a)), Math.round(r * Math.sin(a))];
   });
 }
 
@@ -43,14 +71,11 @@ export default function TripMap({ trip }: { trip: TripPlan }) {
     }));
   }, [chosen]);
 
+  // every repair gets its own pin; repairs in the same community share its point
   const places = useMemo(() => {
-    const out: { community: string; order: number; stops: TripPlan["stops"] }[] = [];
-    for (const s of trip.stops) {
-      const last = out[out.length - 1];
-      if (last && last.community === s.community) last.stops.push(s);
-      else out.push({ community: s.community, order: out.length + 1, stops: [s] });
-    }
-    return out;
+    const out = new Map<string, TripPlan["stops"]>();
+    for (const s of trip.stops) out.set(s.community, [...(out.get(s.community) ?? []), s]);
+    return [...out.entries()].map(([community, stops]) => ({ community, stops }));
   }, [trip.stops]);
 
   const points = useMemo(
@@ -98,18 +123,44 @@ export default function TripMap({ trip }: { trip: TripPlan }) {
       )}
 
       {places.map((p) => {
+        if (!c[p.community]) return null;
         const worst = p.stops.reduce((w, s) => (rank(s.tier) < rank(w) ? s.tier : w), p.stops[0].tier);
         const dest = p.community === trip.community;
-        return c[p.community] ? (
-          <Marker key={p.community} position={c[p.community]} icon={pin(dest ? "⚑" : String(p.order), TIER_HEX[worst] ?? INK)}>
-            <Tooltip direction="top" offset={[0, -14]} permanent={dest}>
-              <strong>{p.community}</strong>
-              {dest ? " (destination)" : ""}
-              <br />
-              {p.stops.length} job{p.stops.length > 1 ? "s" : ""} · arrive {hoursOrDays(p.stops[0].eta_hours, trip.workday_hours)}
-            </Tooltip>
-          </Marker>
-        ) : null;
+        const offsets = ring(p.stops.length);
+        const many = p.stops.length > 1;
+        return [
+          many && (
+            <Marker key={`${p.community}-hub`} position={c[p.community]} icon={hub(TIER_HEX[worst] ?? INK, ringRadius(p.stops.length) + 18)}>
+              <Tooltip direction="right" permanent={dest}>
+                <strong>{p.community}</strong>
+                {dest ? " (destination)" : ""} · {p.stops.length} repairs
+              </Tooltip>
+            </Marker>
+          ),
+          ...p.stops.map((s, i) => {
+            const [dx, dy] = offsets[i];
+            const anchor = s.request_id === trip.anchor;
+            return (
+              <Marker
+                key={s.request_id}
+                position={c[p.community]}
+                icon={pin(anchor ? "⚑" : String(s.order), TIER_HEX[s.tier] ?? INK, "circle", dx, dy)}
+                zIndexOffset={anchor ? 1000 : 500 - i}
+              >
+                <Tooltip direction="top" permanent={!many && dest}>
+                  <strong>
+                    {anchor ? "Destination" : `Stop ${s.order}`} · {p.community}
+                  </strong>
+                  {s.address ? ` · ${s.address}` : ""}
+                  <br />
+                  {s.tier} · arrive {hoursOrDays(s.eta_hours, trip.workday_hours)}
+                  <br />
+                  <em>“{s.evidence.length > 60 ? `${s.evidence.slice(0, 60)}…` : s.evidence}”</em>
+                </Tooltip>
+              </Marker>
+            );
+          }),
+        ];
       })}
     </MapContainer>
   );

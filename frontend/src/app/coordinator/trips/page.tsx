@@ -246,7 +246,7 @@ function TripDetail({ trip: t, busy, onApprove }: { trip: TripPlan; busy: boolea
           <span className="flex items-center gap-1.5"><span className="inline-block h-1 w-6 rounded bg-ink" /> Recommended route</span>
           <span className="flex items-center gap-1.5"><span className="inline-block w-6 border-t-2 border-dashed border-ink" /> Charter flight</span>
           <span className="flex items-center gap-1.5"><span className="inline-block w-6 border-t-2 border-dotted border-muted" /> Routes not chosen</span>
-          <span>★ crew start · numbers = stops in order · ⚑ destination</span>
+          <span>★ crew start · numbers = stops in order · ⚑ destination · several repairs in one place fan out around it</span>
         </div>
       </Card>
 
