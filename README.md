@@ -14,7 +14,7 @@ Built for the CDU IT Code Fair, Trusted AI decision-support challenge.
 ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-database-47A248?logo=mongodb&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-542%20passing-2f6b4f)
+![Tests](https://img.shields.io/badge/tests-550%20passing-2f6b4f)
 
 ---
 
@@ -95,6 +95,12 @@ flowchart LR
   (closed roads removed, restricted roads slowed). Jobs on the way are added
   in need order, never quickest first, only while nobody is made to wait
   too long.
+- **Daily runs and make-safe call-outs.** In Darwin, Palmerston and towns
+  within daily reach, each run starts with the highest-ranked job still
+  waiting for that trade and adds nearby jobs of the same trade in need order
+  while the crew's day has room (at most 30 minutes' extra driving each).
+  Visits are ordered by road; that never changes who is served. An Immediate
+  job in town is a make-safe call-out of its own, never bundled.
 - **Ask why.** On the tracking page a tenant asks why their repair is where
   it is and gets an answer built from their record and today's queue: who is
   ahead and why (more dangerous, more need, or reported earlier), that where
@@ -225,7 +231,7 @@ python scripts/run_scenarios.py
 python scripts/run_eval.py
 ```
 
-The first runs 542 tests on an in-memory database, so no server is needed.
+The first runs 550 tests on an in-memory database, so no server is needed.
 The second runs the 16 demo scenarios in [TEST_CASES.md](TEST_CASES.md). The
 third scores reading against the 12,000-row dataset in `data/`.
 
@@ -279,7 +285,7 @@ frontend/            Next.js web app (presentation only; calls the API)
 config/policy.yaml   Every weight and threshold
 reference/           Communities, road network, crews, road status
 scripts/             Seeding, evaluation, scenario runner, data builders
-tests/               542 tests
+tests/               550 tests
 docs/DESIGN.md       Design notes, test findings, evaluation
 ```
 

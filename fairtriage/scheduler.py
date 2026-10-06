@@ -582,6 +582,158 @@ def _pick_crew(anchor: Job, free: dict[str, list[float]],
                                    f"{fmt_hours(gain)} sooner than the {home} crew.")
 
 
+# ---------------------------------------------------------------------------
+# Daily runs: Darwin, Palmerston and the towns within daily reach
+# ---------------------------------------------------------------------------
+
+def _hours(a: str, b: str) -> float:
+    if a == b:
+        return 0.0
+    f = fastest(a, b)
+    return f[0] if f else float("inf")
+
+
+def _visit_order(depot: str, stops: list[Job]) -> list[Job]:
+    """Nearest place first, from the depot; jobs in one place stay together
+    in queue order. Only the order of driving: never who is on the run."""
+    left = list(stops)
+    out, here = [], depot
+    while left:
+        nxt = min(left, key=lambda j: (_hours(here, j.community), j.key))
+        same = sorted([j for j in left if j.community == nxt.community], key=lambda j: j.key)
+        out += same
+        left = [j for j in left if j.community != nxt.community]
+        here = nxt.community
+    return out
+
+
+def _driving(depot: str, ordered: list[Job]) -> float:
+    """Out through the stops and back to the depot."""
+    places = [depot] + [j.community for j in ordered] + [depot]
+    return sum(_hours(a, b) for a, b in zip(places, places[1:]))
+
+
+def _run_route(depot: str, ordered: list[Job]) -> Route:
+    nodes, legs = [depot], []
+    for j in ordered:
+        if j.community == nodes[-1]:
+            continue
+        rs = candidate_routes(nodes[-1], j.community)
+        if not rs:
+            continue
+        nodes += rs[0].nodes[1:]
+        legs += rs[0].legs
+    return Route(nodes, legs)
+
+
+def _daily_runs(jobs: list[Job], plans: list[TripPlan], locations: dict[str, str]) -> list[TripPlan]:
+    cfg = _cfg()
+    dr = cfg.get("daily_runs") or {}
+    if not dr.get("enabled", True):
+        return []
+    from .wait import trade_crews
+    taken = {s.job.request_id for p in plans for s in p.stops}
+    cap = cfg["capacity_hours_per_day"]
+    day = cfg["workday_hours"]
+    max_added = dr.get("max_added_minutes", 30) / 60
+    max_stops = dr.get("max_stops", 8)
+
+    pool = [j for j in jobs if j.request_id not in taken and not needs_trip(j.community)]
+    runs = []
+
+    capacity = trade_capacity()
+    pool = [j for j in pool if j.trade_region in capacity]      # a region with no crews plans nothing
+
+    # Immediate: an on-call make-safe call-out each, straight there, never bundled
+    for j in sorted([j for j in pool if j.tier == "Immediate"], key=lambda j: j.key):
+        depot = locations.get(j.trade_region) or capacity[j.trade_region]["depot"]
+        rs = candidate_routes(depot, j.community)
+        route = rs[0] if rs else Route([depot])
+        st = Stop(j, round(route.hours, 2), "anchor")
+        tp = TripPlan(id=f"SAFE-{uuid.uuid4().hex[:6]}", community=j.community, trigger="make_safe",
+                      trigger_detail="on-call make-safe call-out", anchor=j, trade=j.trade,
+                      capacity_hours=cap, start=depot, crew=0, crew_region=j.trade_region,
+                      route=route, stops=[st])
+        tp.options = [RouteOption(route, [st], [], 0.0, True)]
+        tp.finish_h = round(route.hours + j.hours, 2)
+        tp.target_missed = st.eta_h > max(slack_hours(j), 0) + 1e-9
+        tp.headline = f"Make-safe call-out: {depot} → {j.community}"
+        tp.explanation = (f"{j.request_id} is Immediate: an on-call {j.trade.lower()} goes straight there to "
+                          f"make it safe. Immediate work is never bundled into a day's run.")
+        runs.append(tp)
+
+    groups: dict[tuple[str, str], list[Job]] = {}
+    for j in pool:
+        if j.tier != "Immediate":
+            groups.setdefault((j.trade_region, j.trade), []).append(j)
+
+    days_ahead = max(int(dr.get("days_ahead", 1)), 1)
+    for (region, trade), js in sorted(groups.items()):
+        depot = locations.get(region) or capacity[region]["depot"]
+        per_day = max(int(trade_crews(region, trade)), 1)
+        # crews leaving today on a remote trip are not free for today's runs
+        away_today = sum(1 for p in plans if p.reachable and p.crew_region == region
+                         and p.trade == trade and p.start_offset_h == 0)
+        waiting = sorted(js, key=lambda j: j.key)
+        slots = [(d, k) for d in range(days_ahead)
+                 for k in range(max(per_day - away_today, 1) if d == 0 else per_day)]
+        for day_no, crew in slots:
+            if not waiting:
+                break
+            offset = day_no * day
+            anchor = waiting[0]
+            chosen = [anchor]
+            for cand in waiting[1:]:
+                if len(chosen) >= max_stops:
+                    break
+                if sum(j.hours for j in chosen) + cand.hours > cap:
+                    continue
+                before = _driving(depot, _visit_order(depot, chosen))
+                trial = _visit_order(depot, chosen + [cand])
+                after = _driving(depot, trial)
+                if after - before > max_added + 1e-9:
+                    continue
+                if after + sum(j.hours for j in chosen) + cand.hours > day:
+                    continue
+                chosen.append(cand)
+            ordered = _visit_order(depot, chosen)
+            waiting = [j for j in waiting if j not in chosen]
+
+            # expected arrival: driving so far plus the work at earlier stops
+            stops, here, clock = [], depot, float(offset)
+            for j in ordered:
+                clock += _hours(here, j.community)
+                stops.append(Stop(j, round(clock, 2), "daily run" if j is not anchor else "anchor"))
+                clock += j.hours
+                here = j.community
+            route = _run_route(depot, ordered)
+            tp = TripPlan(id=f"RUN-{uuid.uuid4().hex[:6]}", community=anchor.community,
+                          trigger="daily_run",
+                          trigger_detail=f"daily run for the {region} {trade} crew",
+                          anchor=anchor, trade=trade, capacity_hours=cap, start=depot,
+                          crew=crew, crew_region=region, route=route, stops=stops,
+                          start_offset_h=float(offset))
+            tp.options = [RouteOption(route, stops, [], 0.0, True)]
+            tp.finish_h = round(clock, 2)
+            tp.target_missed = stops[[s.job for s in stops].index(anchor)].eta_h > max(slack_hours(anchor), 0) + 1e-9
+            places = []
+            for s in stops:
+                if s.job.community not in places:
+                    places.append(s.job.community)
+            tp.headline = ("Daily run" + (" tomorrow" if day_no == 1 else f" in {day_no} days" if day_no > 1 else "")
+                           + ": " + " → ".join([depot] + places))
+            extra = len(stops) - 1
+            tp.explanation = (
+                f"A day's work for a {region} {trade.lower()} crew. It starts with {anchor.request_id}, "
+                f"the highest-ranked {trade.lower()} job still waiting ({anchor.tier}, {anchor.community})"
+                + (f", and adds {extra} more {trade.lower()} job{'s' if extra != 1 else ''} in need order, "
+                   f"each adding no more than {int(max_added * 60)} minutes of driving, while the day has room"
+                   if extra else "")
+                + ". The visiting order is by road to save driving; it never changes who is served.")
+            runs.append(tp)
+    return runs
+
+
 def plan(commit: bool = True, only: str | None = None) -> list[TripPlan]:
     """Recommend trips. `commit` books them; `only` (an anchor request id)
     books just that one trip and leaves the rest as recommendations."""
@@ -622,6 +774,7 @@ def plan(commit: bool = True, only: str | None = None) -> list[TripPlan]:
         if rescued is not None and not rescued.target_missed:
             shorten, plans = trial_shorten, trial
 
+    plans = plans + _daily_runs(jobs, plans, locations)
     if commit:
         _commit([p for p in plans if p.reachable and (only is None or p.anchor.request_id == only)])
     return plans

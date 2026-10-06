@@ -5,7 +5,7 @@
 # model. Change a value -> bump `version` -> old recommendations remain
 # explainable because each assessment stores the version that produced it.
 
-version: "policy-2026.10-v10"
+version: "policy-2026.10-v11"
 
 # ---------------------------------------------------------------------------
 # Tier ladder. Lexicographic and non-compensatory: nothing in a lower tier can
@@ -143,6 +143,19 @@ trips:
   # v10: the crew that arrives soonest goes, from any depot; the home region's
   # crew keeps the job unless another arrives more than this much sooner
   home_crew_preference_hours: 0.5
+  # v11: daily runs in Darwin, Palmerston and the towns within daily reach.
+  # Who goes on a run is decided by the queue: each run starts with the
+  # highest-ranked job still waiting for that trade. Other jobs of the trade
+  # are added in need order while the day has room and each adds at most
+  # this much driving. The visiting order is by road; it never changes who
+  # is served.
+  # Immediate jobs are not bundled: each is an on-call make-safe call-out,
+  # straight there. Runs carry Urgent and Routine work.
+  daily_runs:
+    enabled: true
+    max_added_minutes: 30
+    max_stops: 8
+    days_ahead: 2                 # plan today's and tomorrow's runs
   match_trade: true             # a stop must need the trade the trip carries
   stops_include_urban: false    # Darwin suburbs have their own daily crews
 

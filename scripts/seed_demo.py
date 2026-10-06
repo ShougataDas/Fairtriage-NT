@@ -43,6 +43,23 @@ DEMO = [
     ("kitchen cupboard door came off the hinge", "Darwin (Karama)", [], 4, None),
     ("The home is fine, just the back room floods a bit when it rains",
      "Gunbalanya", [], 20, None),
+    # Local clusters, so the planner shows short daily runs in town as well as
+    # long trips: jobs near each other in Palmerston, the inner city and the
+    # northern suburbs, of the same trades.
+    ("the kitchen tap is leaking under the sink", "Palmerston (Gray)", [], 4, None),
+    ("the only toilet is blocked and will not flush", "Palmerston (Driver)", ["children"], 1, False),
+    ("no hot water since saturday", "Palmerston (Moulden)", [], 2, None),
+    ("the shower drain is blocked and water stays in the shower", "Palmerston (Woodroffe)", [], 5, None),
+    ("the laundry tap drips all the time", "Palmerston (Gunn)", [], 6, None),
+    ("no hot water in the house since yesterday", "Darwin (City)", ["elderly"], 1, None),
+    ("the toilet cistern keeps running and will not stop", "Darwin (Stuart Park)", [], 3, None),
+    ("the bathroom basin is blocked and drains very slowly", "Darwin (Larrakeyah)", [], 4, None),
+    ("the outside tap is leaking near the back door", "Darwin (Parap)", [], 7, None),
+    ("the light switch in the bedroom is broken and the light will not turn on", "Darwin (Nightcliff)", [], 3, None),
+    ("the ceiling fan in the lounge does not work", "Darwin (Rapid Creek)", [], 5, None),
+    ("the kitchen cupboard door hinge is broken", "Darwin (Casuarina)", [], 6, None),
+    ("the fly screen on the bedroom window has a big hole", "Darwin (Tiwi)", [], 8, None),
+    ("the back door handle came off", "Darwin (Alawa)", [], 4, None),
 ]
 
 

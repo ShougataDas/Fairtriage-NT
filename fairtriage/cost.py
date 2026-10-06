@@ -58,9 +58,11 @@ def _group(key: str, label: str, lines: list[dict]) -> dict:
 
 
 def estimate(out_legs: list, back_legs: list, jobs: list[JobWork], trade: str,
-             immediate: bool, places: list[str]) -> dict:
+             immediate: bool, places: list[str], local: bool = False) -> dict:
     """Cost of one trip: drive or fly out along `out_legs`, do `jobs`, come
-    home along `back_legs`. `places` are the communities visited."""
+    home along `back_legs`. `places` are the communities visited. `local`: a
+    daily run or call-out in town; the crew goes home each night, so work
+    past one day is overtime, never a night away."""
     c = _cfg()
     v, air, crew, lg = c["vehicle"], c["charter"], c["crew"], c["logistics"]
     wd = policy()["trips"]["workday_hours"]
@@ -83,7 +85,7 @@ def estimate(out_legs: list, back_legs: list, jobs: list[JobWork], trade: str,
         """k = 0: every input at its low end; k = 1: at its high end."""
         work_h = onsite * c["job_hours_range"][k] + setup
         total_h = travel_h + work_h
-        days = max(1, math.ceil(total_h / wd))
+        days = 1 if local else max(1, math.ceil(total_h / wd))
         nights = days - 1
         people = crew["tradespeople"] + (crew["assistant_on_remote_trips"]
                                          if (remote or nights or flights or rough_km) else 0)
@@ -214,7 +216,8 @@ def trip_cost(tp) -> dict | None:
     jobs = [JobWork(s.job.trade or tp.trade, s.job.hours) for s in tp.stops]
     places = [s.job.community for s in tp.stops]
     immediate = tp.anchor.tier == "Immediate"
-    out = estimate(tp.route.legs, back_legs, jobs, tp.trade, immediate, places)
+    local = tp.trigger in ("daily_run", "make_safe")
+    out = estimate(tp.route.legs, back_legs, jobs, tp.trade, immediate, places, local=local)
 
     if len(tp.stops) > 1:
         sep_lo = sep_hi = 0
@@ -225,7 +228,7 @@ def trip_cost(tp) -> dict | None:
                 continue
             one = estimate(there[0].legs, (home[0].legs if home else []),
                            [JobWork(s.job.trade or tp.trade, s.job.hours)], tp.trade,
-                           s.job.tier == "Immediate", [s.job.community])
+                           s.job.tier == "Immediate", [s.job.community], local=local)
             sep_lo += one["low"]
             sep_hi += one["high"]
         out["separate"] = {"trips": len(tp.stops), "low": sep_lo, "high": sep_hi}

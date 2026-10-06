@@ -21,6 +21,17 @@ const TripMap = dynamic(() => import("@/components/TripMap"), {
 
 const keyOf = (t: TripPlan) => `${t.anchor}|${t.trade}`;
 
+type Kind = "trip" | "run" | "safe";
+const kindOf = (t: TripPlan): Kind => (t.trigger === "daily_run" ? "run" : t.trigger === "make_safe" ? "safe" : "trip");
+const KIND_LABEL: Record<Kind, string> = { trip: "Remote trips", run: "Daily runs", safe: "Make-safe call-outs" };
+
+function KindPill({ trip }: { trip: TripPlan }) {
+  const k = kindOf(trip);
+  if (k === "run") return <Pill tone="good">Daily run</Pill>;
+  if (k === "safe") return <Pill tone="bad">Make-safe call-out</Pill>;
+  return <Pill tone="neutral">Remote trip</Pill>;
+}
+
 export default function TripsPage() {
   const { data, error, isLoading, mutate } = useSWR<TripPreview>("/api/trips/preview", fetcher, { refreshInterval: 30000 });
   const { data: confirmed, mutate: mutateConfirmed } = useSWR<ConfirmedTrip[]>("/api/trips", fetcher);
@@ -32,7 +43,9 @@ export default function TripsPage() {
   const [actionError, setActionError] = useState<unknown>(null);
   const detailRef = useRef<HTMLDivElement>(null);
 
-  const trips = useMemo(() => (data?.trips ?? []).filter((t) => t.route), [data]);
+  const [kind, setKind] = useState<Kind | "all">("all");
+  const allTrips = useMemo(() => (data?.trips ?? []).filter((t) => t.route), [data]);
+  const trips = useMemo(() => allTrips.filter((t) => kind === "all" || kindOf(t) === kind), [allTrips, kind]);
   const activeApproved = (confirmed ?? []).filter((t) => (t.status ?? "approved") === "approved").length;
   const unreachable = (data?.trips ?? []).filter((t) => !t.route);
   const current = trips.find((t) => keyOf(t) === selected) ?? trips[0];
@@ -59,17 +72,17 @@ export default function TripsPage() {
   }
 
   const totals = useMemo(() => {
-    const jobs = trips.reduce((n, t) => n + t.stops.length, 0);
-    const saved = trips.reduce((n, t) => n + (t.benefit?.hours_saved ?? 0), 0);
-    return { jobs, saved: Math.round(saved), air: trips.filter((t) => t.route?.by_air).length, late: trips.filter((t) => t.target_missed).length };
-  }, [trips]);
+    const jobs = allTrips.reduce((n, t) => n + t.stops.length, 0);
+    const saved = allTrips.reduce((n, t) => n + (t.benefit?.hours_saved ?? 0), 0);
+    return { jobs, saved: Math.round(saved), air: allTrips.filter((t) => t.route?.by_air).length, late: allTrips.filter((t) => t.target_missed).length };
+  }, [allTrips]);
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Trip planner"
-        lede="Plans the trips maintenance crews make to towns and remote communities outside Darwin."
-        aside={view === "recommended" && trips.length > 1 && <Button variant="secondary" onClick={() => setConfirmAll(true)} className="self-start">Approve all {trips.length}</Button>}
+        lede="Plans the crews' work: long trips to remote communities, daily runs around Darwin, Palmerston and nearby towns, and make-safe call-outs for Immediate jobs."
+        aside={view === "recommended" && allTrips.length > 1 && <Button variant="secondary" onClick={() => setConfirmAll(true)} className="self-start">Approve all {allTrips.length}</Button>}
       />
 
       <section aria-label="About this page" className="rounded-2xl border border-line bg-paper p-5 shadow-sm">
@@ -119,7 +132,7 @@ export default function TripsPage() {
       {confirmAll && (
         <div role="alertdialog" aria-labelledby="all-title" className="flex flex-col gap-3 rounded-2xl border-2 border-ink bg-ink-soft p-5 sm:flex-row sm:items-center">
           <div className="flex-1">
-            <p id="all-title" className="font-bold">Approve all {trips.length} trips, covering {totals.jobs} repairs?</p>
+            <p id="all-title" className="font-bold">Approve all {allTrips.length} trips, covering {totals.jobs} repairs?</p>
             <p className="text-muted">Each job is booked with its expected arrival, and tenants see it straight away.</p>
           </div>
           <div className="flex gap-2">
@@ -137,7 +150,7 @@ export default function TripsPage() {
 
       {data && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Tile icon={<RouteIcon className="size-4" aria-hidden />} label="Trips recommended" value={trips.length} />
+          <Tile icon={<RouteIcon className="size-4" aria-hidden />} label="Trips recommended" value={allTrips.length} />
           <Tile icon={<Wrench className="size-4" aria-hidden />} label="Repairs covered" value={totals.jobs} />
           <Tile icon={<Clock className="size-4" aria-hidden />} label="Travel saved vs one trip per job" value={`${totals.saved} h`} good />
           <Tile icon={<TriangleAlert className="size-4" aria-hidden />} label="Trips that cannot meet a target" value={totals.late} warn />
@@ -148,9 +161,36 @@ export default function TripsPage() {
 
       {isLoading && <Spinner label="Working out routes" />}
       {error && <ErrorBox error={error} onRetry={() => mutate()} />}
+      {allTrips.length > 0 && (
+        <div role="group" aria-label="Show" className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-sm font-bold">Show</span>
+          {(["all", "trip", "run", "safe"] as const).map((k) => {
+            const n = k === "all" ? allTrips.length : allTrips.filter((t) => kindOf(t) === k).length;
+            return (
+              <button
+                key={k}
+                onClick={() => {
+                  setKind(k);
+                  setSelected(null);
+                }}
+                aria-pressed={kind === k}
+                className={cx(
+                  "rounded-full border-2 px-3 py-1 text-sm font-bold transition",
+                  kind === k ? "border-ink bg-ink text-white" : "border-line text-graphite hover:border-ink",
+                )}
+              >
+                {k === "all" ? "All" : KIND_LABEL[k]} <span className="font-normal opacity-80">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {data && trips.length === 0 && (
         <Empty icon={<RouteIcon className="size-8" aria-hidden />} title="No trip is needed right now">
-          Trips start for an Immediate or Urgent job outside Darwin, or when a community has waited {data.rules.community_threshold_multiple}× its target.
+          {kind === "all"
+            ? `Trips start for an Immediate or Urgent job outside daily reach, or when a community has waited ${data.rules.community_threshold_multiple}× its target. Jobs in town go on daily runs.`
+            : `No ${KIND_LABEL[kind as Kind].toLowerCase()} right now.`}
         </Empty>
       )}
 
@@ -209,6 +249,7 @@ function TripListItem({ trip: t, active, onSelect }: { trip: TripPlan; active: b
     >
       <div className="flex flex-wrap items-center gap-1.5">
         <TierBadge tier={tier} size="sm" />
+        <KindPill trip={t} />
         {t.route?.by_air && <Pill tone="ink"><Plane className="size-3" aria-hidden /> Charter</Pill>}
         {t.target_missed && <Pill tone="bad">Late</Pill>}
         <span className="ml-auto text-xs text-muted">{t.trade}</span>
@@ -239,6 +280,7 @@ function TripDetail({ trip: t, busy, onApprove }: { trip: TripPlan; busy: boolea
       <Card className="p-4 sm:p-5">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h2 className="text-xl font-bold">{t.headline.replace("Recommended trip: ", "")}</h2>
+          <KindPill trip={t} />
           {t.route?.by_air && <Pill tone="ink"><Plane className="size-3" aria-hidden /> Charter flight</Pill>}
         </div>
         <TripMap trip={t} />
@@ -445,7 +487,9 @@ function Rules({ rules: t }: { rules: TripPreview["rules"] }) {
     <details className="rounded-2xl border border-line bg-paper p-5 shadow-sm">
       <summary className="cursor-pointer font-bold">How trips are chosen (every rule, with its value)</summary>
       <ul className="mt-3 flex list-disc flex-col gap-2 pl-5">
-        <li>A trip starts for an Immediate or Urgent job outside Darwin, or when a community&apos;s oldest job has waited {t.community_threshold_multiple}× its target. An urgent job that does not fit on a full trip gets a trip of its own.</li>
+        <li>A trip starts for an Immediate or Urgent job outside daily reach, or when a community&apos;s oldest job has waited {t.community_threshold_multiple}× its target. An urgent job that does not fit on a full trip gets a trip of its own.</li>
+        <li>In Darwin, Palmerston and towns within daily reach, each daily run starts with the highest-ranked job still waiting for that trade, then adds nearby jobs of the same trade in need order while the day has room. The visiting order is by road; it never changes who is served.</li>
+        <li>An Immediate job in town is a make-safe call-out: an on-call tradesperson goes straight there. It is never bundled into a run.</li>
         <li>{r.direct_tiers.join(", ")} jobs go by the fastest route with no stops before them.</li>
         <li>Otherwise jobs on a route are added in need order, never quickest first, while the destination still arrives within {Math.round((1 - r.anchor_slack_reserve) * 100)}% of its remaining time to target (already overdue: at most {r.overdue_delay_cap_hours} h later), and no job on the trip is pushed past its target.</li>
         <li>Route score = value of jobs served on the way − {r.extra_hour_cost} per extra hour − {r.charter_cost} for a charter. A job is worth {r.stop_value.Immediate} / {r.stop_value.Urgent} / {r.stop_value.Routine} by tier, up to {Math.round(r.wait_bonus_cap * 100)}% more for time waited.</li>

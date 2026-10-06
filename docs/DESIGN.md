@@ -294,6 +294,18 @@ app shows the trip on a map (OpenStreetMap tiles; the route still draws
 without internet) and each trip can be approved on its own
 (`POST /api/trips/plan?anchor=<id>`).
 
+**Daily runs** (`trips.daily_runs`). Darwin, Palmerston and towns within
+daily reach have no trips; their crews work in day runs. For each trade in a
+region, a run starts with the highest-ranked job still waiting, then adds
+jobs of the same trade in need order while the day has room (on-site hours
+and a working day) and each adds at most 30 minutes of driving. So who is on
+a run is decided by the queue; only the order of visits is by road (nearest
+place first from the depot). Runs are planned for today and tomorrow, one per
+crew of that trade, less crews leaving today on a remote trip. An Immediate
+job in town is never bundled: it is a make-safe call-out of its own. Runs and
+call-outs are costed as local day work (no nights away; extra hours are
+overtime).
+
 The planner never changes a tier, a need score or a rank. Every weight is in
 `config/policy.yaml` under `trips:` and printed on the page.
 
