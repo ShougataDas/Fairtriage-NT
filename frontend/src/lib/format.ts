@@ -32,6 +32,23 @@ export function when(iso: string): string {
   return d.toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 }
 
+/** What is wrong with a mobile number, in plain words, or null if it is a
+ *  valid Australian mobile. Texts only reach mobiles (04..., +61 4...). */
+export function mobileProblem(raw: string): string | null {
+  const s = raw.trim();
+  if (!s) return "Enter your mobile number so we can text you your reference.";
+  if (/[^\d\s()+.-]/.test(s)) return "Use numbers only, like 0412 345 678.";
+  let d = s.replace(/[\s().-]/g, "");
+  if (d.startsWith("+61")) d = "0" + d.slice(3);
+  else if (d.startsWith("61") && d.length >= 11) d = "0" + d.slice(2);
+  else if (d.startsWith("4") && d.length === 9) d = "0" + d;
+  if (d.startsWith("04")) {
+    return d.length === 10 ? null : `An Australian mobile has 10 digits, like 0412 345 678. This one has ${d.length}.`;
+  }
+  if (d.startsWith("0")) return "That looks like a landline. Texts can only go to a mobile, starting 04.";
+  return "Enter a mobile number starting 04, like 0412 345 678.";
+}
+
 /** "7 Sept": the day only. */
 export function day(iso: string): string {
   return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short" });

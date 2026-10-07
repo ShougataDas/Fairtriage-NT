@@ -63,8 +63,7 @@ def api_lodge(inp: LodgeIn):
     from . import sms
     mobile = sms.normalise_mobile(inp.phone)
     if not mobile:
-        raise HTTPException(422, "Enter a mobile number starting 04, so we can text you your "
-                                 "reference number and this message.")
+        raise HTTPException(422, sms.mobile_problem(inp.phone))
     try:
         out = service.lodge(inp.model_copy(update={"phone": mobile}))
     except service.Invalid as e:
@@ -317,8 +316,7 @@ def tenant_lodge(request: HttpRequest, text: Annotated[str, Form()],
         return _error(request, "Write a few words about what is wrong.")
     mobile = sms.normalise_mobile(phone)
     if not mobile:
-        return _error(request, "Enter a mobile number starting 04, so we can text you your "
-                               "reference number and this message.")
+        return _error(request, sms.mobile_problem(phone))
     try:
         out = service.lodge(LodgeIn(text=text, community=community, phone=mobile,
                                     vulnerability=vulnerability))

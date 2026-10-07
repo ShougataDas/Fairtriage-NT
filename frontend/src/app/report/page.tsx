@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, House, MessageCircleQuestion, Send, Siren } from "lucide-react";
 import { post, type LodgeResult, type Tier } from "@/lib/api";
-import { cx } from "@/lib/format";
+import { cx, mobileProblem } from "@/lib/format";
 import { CommunityPicker } from "@/components/CommunityPicker";
 import { Docket } from "@/components/Docket";
 import { SmsNote } from "@/components/SmsNote";
@@ -46,8 +46,8 @@ export default function ReportPage() {
   const missingPlace = !community;
   const missingAddress = address.trim().length < 3;
   // an Australian mobile: texts only reach mobiles (04..., +61 4...)
-  const mobile = phone.replace(/[\s().-]/g, "");
-  const badPhone = !/^(04\d{8}|\+?614\d{8}|4\d{8})$/.test(mobile);
+  const phoneProblem = mobileProblem(phone);
+  const badPhone = phoneProblem !== null;
 
   async function lodge(e: React.FormEvent) {
     e.preventDefault();
@@ -183,7 +183,7 @@ export default function ReportPage() {
                 />
                 {touched && badPhone && (
                   <p className="text-immediate">
-                    {phone.trim() ? "Enter a mobile number starting 04 (texts cannot go to a landline)." : "Enter your mobile number so we can text you your reference."}
+                    {phoneProblem}
                   </p>
                 )}
               </Field>

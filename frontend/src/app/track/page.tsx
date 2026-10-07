@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MessageSquare, Search } from "lucide-react";
 import { post } from "@/lib/api";
+import { mobileProblem } from "@/lib/format";
 import { Button, ErrorBox, Field, inputClass } from "@/components/ui";
 
 export default function TrackPage() {
@@ -51,8 +52,8 @@ function LostReference() {
   const [busy, setBusy] = useState(false);
   const [reply, setReply] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const mobile = phone.replace(/[\s().-]/g, "");
-  const ok = /^(04\d{8}|\+?614\d{8}|4\d{8})$/.test(mobile);
+  const problem = mobileProblem(phone);
+  const ok = problem === null;
   return (
     <form
       className="mt-6 flex flex-col gap-3 rounded-2xl border border-line bg-paper p-5 sm:p-7"
@@ -91,7 +92,7 @@ function LostReference() {
               className={inputClass + " sm:max-w-xs"}
             />
           </Field>
-          {phone && !ok && <p className="text-muted">Enter a mobile number starting 04.</p>}
+          {phone && !ok && <p className="text-muted">{problem}</p>}
           <Button type="submit" variant="secondary" busy={busy} disabled={!ok} className="self-start">
             <MessageSquare className="size-5" aria-hidden /> Text me my reference
           </Button>

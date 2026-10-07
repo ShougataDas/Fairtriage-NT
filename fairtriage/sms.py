@@ -57,6 +57,27 @@ def normalise_mobile(raw: str | None) -> str | None:
     return None
 
 
+def mobile_problem(raw: str | None) -> str:
+    """Why a number is not an Australian mobile, in plain words."""
+    s = (raw or "").strip()
+    if not s:
+        return "Enter a mobile number so we can text you your reference number and this message."
+    if re.search(r"[^\d\s()+.-]", s):
+        return "Use numbers only, like 0412 345 678."
+    d = re.sub(r"[\s().-]", "", s)
+    if d.startswith("+61"):
+        d = "0" + d[3:]
+    elif d.startswith("61") and len(d) >= 11:
+        d = "0" + d[2:]
+    elif d.startswith("4") and len(d) == 9:
+        d = "0" + d
+    if d.startswith("04"):
+        return f"An Australian mobile has 10 digits, like 0412 345 678. This one has {len(d)}."
+    if d.startswith("0"):
+        return "That looks like a landline. Texts can only go to a mobile, starting 04."
+    return "Enter a mobile number starting 04, like 0412 345 678."
+
+
 def mask(e164: str | None) -> str | None:
     """+61412345678 -> 0412 ••• 678: enough for a tenant to recognise it."""
     if not e164 or not e164.startswith("+61"):
@@ -187,7 +208,7 @@ def resend(raw_phone: str) -> dict:
     used to find out who has reported a repair."""
     to = normalise_mobile(raw_phone)
     if not to:
-        raise Invalid("Enter the mobile number you gave on the report, starting 04.")
+        raise Invalid(mobile_problem(raw_phone))
     reply = {"ok": True, "message": "If that number is on a repair report, we have texted it the "
                                     "reference numbers. It can take a few minutes to arrive."}
     since = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat(timespec="seconds")

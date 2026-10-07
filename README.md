@@ -20,7 +20,7 @@ of the queue?*
 ![Gemini](https://img.shields.io/badge/Google-Gemini%20API-4285F4?logo=google&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-database-47A248?logo=mongodb&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-570%20passing-2f6b4f)
+![Tests](https://img.shields.io/badge/tests-575%20passing-2f6b4f)
 
 ## Live demo
 
@@ -291,7 +291,7 @@ python scripts/run_scenarios.py
 python scripts/run_eval.py --extractor gemini --limit 300
 ```
 
-The first runs 570 tests on an in-memory database, so no server, network or
+The first runs 575 tests on an in-memory database, so no server, network or
 API key is needed (the Gemini path is tested with a stand-in client). The
 second runs the 16 demo scenarios in [TEST_CASES.md](TEST_CASES.md). The third
 scores reading against the 12,000-row dataset in `data/` with Gemini (omit
@@ -363,7 +363,7 @@ frontend/            Next.js web app (presentation only; calls the API)
 config/policy.yaml   Every weight, threshold and rate
 reference/           Communities, road network, crews, road status
 scripts/             Seeding, evaluation, scenario runner, data builders
-tests/               570 tests
+tests/               575 tests
 docs/DESIGN.md       Design notes, test findings, evaluation
 ```
 

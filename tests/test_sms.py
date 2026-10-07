@@ -156,8 +156,21 @@ def test_a_failed_text_never_stops_the_report(monkeypatch):
 
 def test_the_original_tenant_form_also_requires_a_mobile():
     r = C.post("/tenant/lodge", data={"text": "the kitchen tap is dripping", "community": "Wadeye"})
-    assert "mobile number starting 04" in r.text
+    assert "Enter a mobile number" in r.text
     r = C.post("/tenant/lodge", data={"text": "the kitchen tap is dripping", "community": "Wadeye",
                                       "phone": "0412 345 678"})
     assert "Expect a tradesperson" in r.text
     assert db.col(sms.SMS).count_documents({"kind": "report"}) == 1
+
+
+@pytest.mark.parametrize("raw, words", [
+    ("04265393603", "10 digits"),            # one digit too many
+    ("0426 539 36", "10 digits"),
+    ("08 8999 1234", "landline"),
+    ("0412abc678", "numbers only"),
+    ("", "Enter a mobile number"),
+])
+def test_the_error_says_what_is_wrong_with_the_number(raw, words):
+    assert words in sms.mobile_problem(raw)
+    r = lodge(phone=raw)
+    assert r.status_code == 422 and words in r.json()["detail"]
