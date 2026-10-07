@@ -1,4 +1,4 @@
-# Extraction evaluation: keyword, split=test
+# Extraction evaluation: offline, split=test
 
 Rows scored: 1810 (errors 0). Label sources: {'derived': 1800, 'probe_designed': 10}.
 

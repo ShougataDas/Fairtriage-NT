@@ -11,14 +11,22 @@ until it is changed again.
 
 from __future__ import annotations
 
+import time
+
 from . import db
-from .config import policy
+from .config import policy, settings
 from .db import now
 
 SETTINGS = "settings"
 CHANGES = "policy_changes"
 KEY = "community_threshold_multiple"
 LIMITS = (1.0, 4.0)
+
+# The queue reads the threshold once per remote routine row; against a remote
+# database that is a round trip each. Cached for a few seconds per database,
+# and cleared the moment a coordinator changes it.
+_CACHE: dict[str, tuple[float, float]] = {}
+CACHE_SECONDS = 5.0
 
 
 class Invalid(Exception):
@@ -40,8 +48,14 @@ def current() -> dict:
 
 def threshold() -> float:
     """The value the planner and the wait estimate use now."""
+    key = settings().mongo_db
+    hit = _CACHE.get(key)
+    if hit and time.monotonic() - hit[0] < CACHE_SECONDS:
+        return hit[1]
     doc = db.col(SETTINGS).find_one({"_id": KEY}, {"value": 1})
-    return float(doc["value"]) if doc else file_value()
+    value = float(doc["value"]) if doc else file_value()
+    _CACHE[key] = (time.monotonic(), value)
+    return value
 
 
 def set_threshold(value: float, reason: str | None, actor: str = "coordinator-demo") -> dict:
@@ -54,6 +68,7 @@ def set_threshold(value: float, reason: str | None, actor: str = "coordinator-de
     value = round(value, 2)
     db.col(SETTINGS).update_one({"_id": KEY}, {"$set": {
         "value": value, "actor": actor, "reason": reason.strip(), "at": now()}}, upsert=True)
+    _CACHE.clear()
     db.append(CHANGES, {"request_id": None, "setting": KEY, "from": before, "to": value,
                         "actor": actor, "reason": reason.strip()})
     return current()

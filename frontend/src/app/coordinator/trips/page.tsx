@@ -105,7 +105,7 @@ export default function TripsPage() {
         </ol>
       </section>
 
-      <div role="tablist" aria-label="Trips" className="flex gap-2 border-b border-line">
+      <div role="tablist" aria-label="Trips" className="flex gap-1 border-b border-line sm:gap-2">
         {([
           ["recommended", "Recommended", trips.length],
           ["approved", "Approved", activeApproved],
@@ -116,7 +116,7 @@ export default function TripsPage() {
             aria-selected={view === v}
             onClick={() => setView(v)}
             className={cx(
-              "-mb-px flex items-center gap-2 border-b-4 px-4 py-3 text-lg font-bold",
+              "-mb-px flex min-w-0 items-center gap-2 border-b-4 px-2 py-3 text-base font-bold sm:px-4 sm:text-lg",
               view === v ? "border-ink text-ink" : "border-transparent text-muted hover:text-graphite",
             )}
           >
