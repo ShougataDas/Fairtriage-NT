@@ -21,6 +21,7 @@ from langgraph.types import Command
 from . import graph as G
 from .config import policy
 from . import db
+from . import sms
 from .db import ASSESSMENTS, DECISIONS, EXTRACTIONS, REQUESTS, now
 from .explain import fact_sheet, render_coordinator, render_tenant, verify
 from .queue import job_trade, open_jobs, position
@@ -346,6 +347,7 @@ def request_view(request_id: str) -> dict:
             "explanation_tenant": a["explanation_tenant"],
             "explanation_coordinator": a["explanation_coordinator"],
             "weights_version": a["weights_version"], "created_at": a["created_at"]},
+        "sms": sms.log(request_id),
         "decisions": [{"actor": d["actor"], "action": d["action"], "from": d["from_tier"],
                        "to": d["to_tier"], "reason": d.get("reason"), "at": d["created_at"]}
                       for d in db.history(DECISIONS, request_id)],

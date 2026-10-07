@@ -49,6 +49,17 @@ class Settings(BaseSettings):
     breaker_failures: int = 3
     breaker_cooldown_s: float = 300.0
 
+    # Text messages to tenants (Twilio). Without all three, texts are composed
+    # and logged but not sent ("demo mode"), and the tenant is told so.
+    twilio_account_sid: str = Field(default="", validation_alias=AliasChoices(
+        "TWILIO_ACCOUNT_SID", "FAIRTRIAGE_TWILIO_ACCOUNT_SID"))
+    twilio_auth_token: str = Field(default="", validation_alias=AliasChoices(
+        "TWILIO_AUTH_TOKEN", "FAIRTRIAGE_TWILIO_AUTH_TOKEN"))
+    twilio_from_number: str = Field(default="", validation_alias=AliasChoices(
+        "TWILIO_FROM_NUMBER", "FAIRTRIAGE_TWILIO_FROM_NUMBER"))
+    # where the tenant's tracking link in a text points
+    public_web_url: str = "https://fairtriage-nt-web-one.vercel.app"
+
 
 @lru_cache
 def settings() -> Settings:

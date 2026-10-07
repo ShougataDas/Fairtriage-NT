@@ -20,7 +20,7 @@ of the queue?*
 ![Gemini](https://img.shields.io/badge/Google-Gemini%20API-4285F4?logo=google&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-database-47A248?logo=mongodb&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-550%20passing-2f6b4f)
+![Tests](https://img.shields.io/badge/tests-570%20passing-2f6b4f)
 
 ## Live demo
 
@@ -42,7 +42,7 @@ The staff pages are open for this demo so every feature can be tried.
 ## What it does
 
 **For tenants**
-- Report a repair in your own words, with your address. At most **one**
+- Report a repair in your own words, with your address and **mobile number**. At most **one**
   clarifying question, and only when the answer changes the priority
   ("Is this the only toilet in the house?").
 - A clear answer that starts with **when to expect someone**, then why the job
@@ -50,8 +50,13 @@ The staff pages are open for this demo so every feature can be tried.
   would be in the same place, and how to stay safe while you wait.
 - A danger like fire, violence or someone hurt is told to **call 000 first**,
   before anything else, and staff are alerted to phone.
+- **A text message** with your reference number, the message you were shown
+  and a link to track it, so a lost reference never means a lost repair. A
+  question from staff, or a change to your repair's priority, is texted too.
 - **Track** the repair by reference number: a live estimate that counts down,
   what you were told on the day, and the trip or run that will reach you.
+  **Lost your reference?** Enter your mobile number and it is texted to you
+  again (the page never shows whether a number has repairs).
 - **Ask why** your repair is where it is ("Why is my repair not first?",
   "Why was my repair moved down?") and get an answer built from your record and
   today's queue. Not satisfied? **Ask a person to review it.**
@@ -269,6 +274,8 @@ project folder. `.env` is ignored by git, so keys never reach the repository.
 | `FAIRTRIAGE_GEMINI_MODEL` | `gemini-3.1-flash-lite` | Gemini model to use |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | empty | Keys if you use OpenAI or Claude instead |
 | `FAIRTRIAGE_LLM_BUDGET_S` | `12` | Longest a tenant waits for the model before the offline reader answers |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | empty | Twilio account for text messages to tenants. Without all three, texts are composed and logged but not sent (demo mode), and tenants are told so |
+| `FAIRTRIAGE_PUBLIC_WEB_URL` | `https://fairtriage-nt-web-one.vercel.app` | Where the tracking link in a text points |
 | `FAIRTRIAGE_MONGO_URL` | `mongodb://localhost:27017` | MongoDB connection string (Atlas: `mongodb+srv://...`) |
 | `FAIRTRIAGE_MONGO_DB` | `fairtriage` | Database name |
 
@@ -284,7 +291,7 @@ python scripts/run_scenarios.py
 python scripts/run_eval.py --extractor gemini --limit 300
 ```
 
-The first runs 550 tests on an in-memory database, so no server, network or
+The first runs 570 tests on an in-memory database, so no server, network or
 API key is needed (the Gemini path is tested with a stand-in client). The
 second runs the 16 demo scenarios in [TEST_CASES.md](TEST_CASES.md). The third
 scores reading against the 12,000-row dataset in `data/` with Gemini (omit
@@ -306,10 +313,11 @@ JSON endpoints under `/api` (interactive docs at `http://localhost:8000/docs`):
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| POST | `/api/requests` | Lodge a report `{text, community, address, phone?, vulnerability[]}` |
+| POST | `/api/requests` | Lodge a report `{text, community, address, phone, vulnerability[]}`; `phone` must be an Australian mobile; the tenant is texted |
 | POST | `/api/requests/{id}/clarify` | Answer a question (the system's or a coordinator's) |
 | GET | `/api/requests/{id}` | Full record: assessment, live wait, history, trip |
 | POST | `/api/requests/{id}/why` | Tenant asks why: an answer built from the record |
+| POST | `/api/sms/resend` | Lost reference: text the references on this mobile to it `{phone}` |
 | POST | `/api/requests/{id}/review` | Tenant asks a person to review it |
 | POST | `/api/requests/{id}/decision` | Approve, override (with reason) or ask the tenant |
 | GET | `/api/queue` | Ranked queue (`?tier=`, `?community=`, `?order=cost` for contrast) |
@@ -340,6 +348,7 @@ fairtriage/          Python backend
   wait.py            Wait estimates
   explain.py         Tenant and staff explanations, and their verifier
   askwhy.py          The tenant's "why" answer and review requests
+  sms.py             Text messages to tenants (Twilio, or demo mode) and lost-reference resend
   service.py         Lodging, questions, assessments, decisions, live waits, phone list
   scheduler.py       Trip planner: remote trips, daily runs, make-safe call-outs
   routing.py         Road network and alternative routes
@@ -354,7 +363,7 @@ frontend/            Next.js web app (presentation only; calls the API)
 config/policy.yaml   Every weight, threshold and rate
 reference/           Communities, road network, crews, road status
 scripts/             Seeding, evaluation, scenario runner, data builders
-tests/               550 tests
+tests/               570 tests
 docs/DESIGN.md       Design notes, test findings, evaluation
 ```
 
@@ -374,7 +383,8 @@ repository**, with the data in **MongoDB Atlas**.
 - *New Project* → import this repository. Root Directory `./`, preset
   **FastAPI**. It finds the app through `app.py`.
 - Environment variables: `FAIRTRIAGE_MONGO_URL` = your Atlas string;
-  `FAIRTRIAGE_EXTRACTOR` = `gemini` and `GEMINI_API_KEY` = your key.
+  `FAIRTRIAGE_EXTRACTOR` = `gemini` and `GEMINI_API_KEY` = your key; and for
+  text messages `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`.
 - Deploy, then open `https://<backend>.vercel.app/api/health`: it should
   report `"database": "connected"` and the reader in use.
 
@@ -398,6 +408,9 @@ tests and dataset out of the backend bundle.
 - **Gemini free tier:** in testing, the free tier was often busy; a paid or
   higher-quota key is recommended for real use. The reading evaluation should
   be re-run with Gemini on such a key.
+- **Text messages need a Twilio account:** until the three Twilio settings
+  are added, texts run in demo mode (composed and logged, not sent). A Twilio
+  trial account only sends to numbers verified in it.
 - **No sign-in yet:** the staff pages are open for this test so every feature
   can be tried. Every decision already records an actor, a reason and a time;
   in production the actor would come from department sign-in.

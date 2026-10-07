@@ -21,6 +21,11 @@
         {% endfor %}
       </select>
     </div>
+    <div>
+      <label for="phone">Mobile number <span class="hint">Required. We text you your reference number and this message.</span></label>
+      <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" required maxlength="20"
+        placeholder="0400 000 000">
+    </div>
     <fieldset>
       <legend>Who lives in the house? <span class="hint">Optional. Leave blank if you prefer.</span></legend>
       <div class="checks">

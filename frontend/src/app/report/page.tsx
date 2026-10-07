@@ -7,6 +7,7 @@ import { post, type LodgeResult, type Tier } from "@/lib/api";
 import { cx } from "@/lib/format";
 import { CommunityPicker } from "@/components/CommunityPicker";
 import { Docket } from "@/components/Docket";
+import { SmsNote } from "@/components/SmsNote";
 import { REOPEN_EVENT } from "@/components/SiteHeader";
 import { Button, ButtonLink, ErrorBox, Field, inputClass } from "@/components/ui";
 
@@ -44,7 +45,9 @@ export default function ReportPage() {
   const missingText = !text.trim();
   const missingPlace = !community;
   const missingAddress = address.trim().length < 3;
-  const badPhone = phone.trim() !== "" && !/^[0-9 +()-]{8,20}$/.test(phone.trim());
+  // an Australian mobile: texts only reach mobiles (04..., +61 4...)
+  const mobile = phone.replace(/[\s().-]/g, "");
+  const badPhone = !/^(04\d{8}|\+?614\d{8}|4\d{8})$/.test(mobile);
 
   async function lodge(e: React.FormEvent) {
     e.preventDefault();
@@ -54,7 +57,7 @@ export default function ReportPage() {
     setError(null);
     try {
       const r = await post<LodgeResult>("/api/requests", {
-        text: text.trim(), community, address: address.trim(), phone: phone.trim() || null, vulnerability: household,
+        text: text.trim(), community, address: address.trim(), phone: phone.trim(), vulnerability: household,
       });
       setResult(r);
       setStep(r.status === "awaiting_tenant" ? "question" : "done");
@@ -164,12 +167,13 @@ export default function ReportPage() {
                 <CommunityPicker id="community" value={community} onChange={setCommunity} invalid={touched && missingPlace} />
                 {touched && missingPlace && <p className="text-immediate">Choose your suburb or community.</p>}
               </Field>
-              <Field label="Phone number" hint="Optional. So staff can call you if needed." htmlFor="phone">
+              <Field label="Mobile number" hint="Required. We text you your reference number and the message you see here, so you can always check on your repair." htmlFor="phone">
                 <input
                   id="phone"
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel"
+                  required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   maxLength={20}
@@ -177,7 +181,11 @@ export default function ReportPage() {
                   aria-invalid={touched && badPhone ? true : undefined}
                   className={cx(inputClass, "sm:max-w-xs", touched && badPhone && "border-immediate")}
                 />
-                {touched && badPhone && <p className="text-immediate">That does not look like a phone number. Leave it blank if you prefer.</p>}
+                {touched && badPhone && (
+                  <p className="text-immediate">
+                    {phone.trim() ? "Enter a mobile number starting 04 (texts cannot go to a landline)." : "Enter your mobile number so we can text you your reference."}
+                  </p>
+                )}
               </Field>
             </fieldset>
 
@@ -243,12 +251,14 @@ export default function ReportPage() {
           <p className="text-sm text-muted">
             Your report is saved as <strong className="font-mono">{result.request_id}</strong>.
           </p>
+          <SmsNote sms={result.sms} reference={result.request_id} />
         </form>
       )}
 
       {step === "done" && result?.explanation_tenant && result.tier && (
         <div className="flex flex-col gap-4">
           <Docket requestId={result.request_id} tier={result.tier as Tier} explanation={result.explanation_tenant} address={address} community={community} />
+          <SmsNote sms={result.sms} reference={result.request_id} />
           <div className="flex flex-wrap gap-3">
             <ButtonLink href={`/track/${result.request_id}`}>Open this record</ButtonLink>
             <Button variant="secondary" onClick={reset}>Report something else</Button>

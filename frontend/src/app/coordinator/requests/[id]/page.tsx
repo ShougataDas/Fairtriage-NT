@@ -155,6 +155,30 @@ export default function RequestDetail() {
             </Card>
           )}
 
+          {r.sms && r.sms.length > 0 && (
+            <Card>
+              <CardTitle>Text messages to the tenant</CardTitle>
+              <ul className="flex flex-col gap-3">
+                {r.sms.map((m, i) => (
+                  <li key={i} className="rounded-xl border border-line p-3">
+                    <p className="flex flex-wrap items-center gap-2 text-sm">
+                      <strong>{m.kind === "question" ? "Question" : m.kind === "update" ? "Update" : "Reference and message"}</strong>
+                      <span className="text-muted">to {m.to} · {when(m.at)}</span>
+                      <Pill tone={m.status === "sent" ? "good" : m.status === "demo" ? "warn" : "bad"}>
+                        {m.status === "sent" ? "Sent" : m.status === "demo" ? "Demo: not sent" : "Failed"}
+                      </Pill>
+                    </p>
+                    {m.error && <p className="mt-1 text-sm text-immediate">{m.error}</p>}
+                    <details className="mt-1">
+                      <summary className="cursor-pointer text-sm font-bold text-ink">Show the text</summary>
+                      <pre className="mt-2 whitespace-pre-wrap font-sans text-sm">{m.body}</pre>
+                    </details>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
           <details className="rounded-2xl border border-line bg-paper p-5 shadow-sm">
             <summary className="cursor-pointer font-bold">How the message was read ({r.extractions.length})</summary>
             <div className="mt-4 overflow-x-auto">

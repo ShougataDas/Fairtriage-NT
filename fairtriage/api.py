@@ -17,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 from . import metrics, scheduler, service
 from .config import policy, reader_status
 from .reference import communities, road_km, trade_capacity
-from .schemas import ClarifyIn, DecisionIn, LodgeIn, ReviewIn, ThresholdIn, TripChangeIn, WhyIn
+from .schemas import ClarifyIn, DecisionIn, LodgeIn, ResendIn, ReviewIn, ThresholdIn, TripChangeIn, WhyIn
 
 WEB = Path(__file__).parent / "web"
 app = FastAPI(title="FairTriage NT", version="3.0")
@@ -57,10 +57,20 @@ def _docket_ctx(rid: str, result: dict) -> dict:
 
 @app.post("/api/requests")
 def api_lodge(inp: LodgeIn):
+    """Lodge a report. A mobile number is required: the tenant is texted their
+    reference and the message they are shown, so a lost reference never means
+    a lost repair."""
+    from . import sms
+    mobile = sms.normalise_mobile(inp.phone)
+    if not mobile:
+        raise HTTPException(422, "Enter a mobile number starting 04, so we can text you your "
+                                 "reference number and this message.")
     try:
-        return service.lodge(inp)
+        out = service.lodge(inp.model_copy(update={"phone": mobile}))
     except service.Invalid as e:
         raise HTTPException(422, str(e))
+    out["sms"] = sms.after_result(out)
+    return out
 
 
 @app.get("/api/requests/{rid}")
@@ -73,12 +83,25 @@ def api_get(rid: str):
 
 @app.post("/api/requests/{rid}/clarify")
 def api_clarify(rid: str, inp: ClarifyIn):
+    from . import sms
     try:
-        return service.clarify(rid, inp.answer)
+        out = service.clarify(rid, inp.answer)
+        out["sms"] = sms.after_result(out)
+        return out
     except service.NotFound:
         raise HTTPException(404, "no such request")
     except service.Invalid as e:
         raise HTTPException(409, str(e))
+
+
+@app.post("/api/sms/resend")
+def api_sms_resend(inp: ResendIn):
+    """A tenant lost their reference: text the references on this number to it."""
+    from . import sms
+    try:
+        return sms.resend(inp.phone)
+    except sms.Invalid as e:
+        raise HTTPException(422, str(e))
 
 
 @app.post("/api/requests/{rid}/why")
@@ -103,8 +126,13 @@ def api_review(rid: str, inp: ReviewIn):
 
 @app.post("/api/requests/{rid}/decision")
 def api_decide(rid: str, d: DecisionIn):
+    from . import sms
     try:
-        return service.decide(rid, d)
+        out = service.decide(rid, d)
+        # a changed tier or a staff question reaches the tenant by text too
+        if d.action in ("override", "request_info"):
+            out["sms"] = sms.after_result(out, update=d.action == "override")
+        return out
     except service.NotFound:
         raise HTTPException(404, "no such request")
     except service.Invalid as e:
@@ -281,15 +309,22 @@ def tenant_form(request: HttpRequest):
 @app.post("/tenant/lodge", response_class=HTMLResponse)
 def tenant_lodge(request: HttpRequest, text: Annotated[str, Form()],
                  community: Annotated[str, Form()],
+                 phone: Annotated[str, Form()] = "",
                  vulnerability: Annotated[list[str], Form()] = []):
+    from . import sms
     text = text.strip()
     if not text:
         return _error(request, "Write a few words about what is wrong.")
+    mobile = sms.normalise_mobile(phone)
+    if not mobile:
+        return _error(request, "Enter a mobile number starting 04, so we can text you your "
+                               "reference number and this message.")
     try:
-        out = service.lodge(LodgeIn(text=text, community=community,
+        out = service.lodge(LodgeIn(text=text, community=community, phone=mobile,
                                     vulnerability=vulnerability))
     except service.Invalid as e:
         return _error(request, str(e))
+    sms.after_result(out)
     if out["status"] == "awaiting_tenant":
         return T.TemplateResponse(request, "_question.html",
                                   {"question": out["question"],
@@ -306,6 +341,8 @@ def tenant_clarify(request: HttpRequest, rid: str, answer: Annotated[str, Form()
         out = service.clarify(rid, answer)
     except (service.NotFound, service.Invalid) as e:
         return _error(request, str(e))
+    from . import sms
+    sms.after_result(out)
     return T.TemplateResponse(request, "_docket.html", _docket_ctx(rid, out))
 
 

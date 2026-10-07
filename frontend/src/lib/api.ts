@@ -47,9 +47,28 @@ export interface Component {
   detail: string;
 }
 
+/** What happened to the text message: sent, demo (prepared, no service connected), failed. */
+export interface SmsResult {
+  status: "sent" | "demo" | "failed" | "no_number";
+  to: string | null;
+  mode: "twilio" | "demo";
+  repeat?: boolean;
+}
+
+export interface SmsLogEntry {
+  kind: "report" | "update" | "question" | "resend";
+  status: string;
+  mode: string;
+  to: string | null;
+  body: string;
+  error: string | null;
+  at: string;
+}
+
 export interface LodgeResult {
   request_id: string;
   status: string;
+  sms?: SmsResult | null;
   question?: string;
   tier?: Tier;
   rank?: number | null;
@@ -83,6 +102,7 @@ export interface RequestView {
   advanced_by: string | null;
   trip: TripInfo | null;
   wait_now: WaitNow | null;
+  sms?: SmsLogEntry[];
   assessment: null | {
     tier: Tier;
     need: number;

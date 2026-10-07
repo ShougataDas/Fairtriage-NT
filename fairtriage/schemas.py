@@ -202,6 +202,10 @@ class ClarifyIn(BaseModel):
     answer: str = Field(min_length=1, max_length=500)
 
 
+class ResendIn(BaseModel):
+    phone: str = Field(min_length=6, max_length=30)
+
+
 class WhyIn(BaseModel):
     question: Optional[str] = Field(default=None, max_length=500)
 
