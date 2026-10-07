@@ -22,6 +22,21 @@ of the queue?*
 ![MongoDB](https://img.shields.io/badge/MongoDB-database-47A248?logo=mongodb&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-550%20passing-2f6b4f)
 
+## Live demo
+
+**Web app: https://fairtriage-nt-web-one.vercel.app/**
+
+| Page | Link |
+|---|---|
+| Report a repair (tenants) | https://fairtriage-nt-web-one.vercel.app/report |
+| Track a repair (tenants) | https://fairtriage-nt-web-one.vercel.app/track |
+| Repair queue (staff) | https://fairtriage-nt-web-one.vercel.app/coordinator |
+| Trip planner (staff) | https://fairtriage-nt-web-one.vercel.app/coordinator/trips |
+| Fairness and trip policy (staff) | https://fairtriage-nt-web-one.vercel.app/coordinator/fairness |
+| Backend API health | https://fairtriage-nt.vercel.app/api/health |
+
+The staff pages are open for this demo so every feature can be tried.
+
 ---
 
 ## What it does
