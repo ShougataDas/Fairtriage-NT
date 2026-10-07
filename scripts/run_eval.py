@@ -54,7 +54,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", default=str(ROOT / "data" / "fairtriage_v3.csv"))
     ap.add_argument("--split", default="test")
-    ap.add_argument("--extractor", default="keyword", choices=["keyword", *EXTRACTORS])
+    ap.add_argument("--extractor", default="offline", choices=["offline", "keyword", *EXTRACTORS])
     ap.add_argument("--limit", type=int, default=0)
     a = ap.parse_args()
 
@@ -62,7 +62,7 @@ def main() -> None:
     df = df[df.split == a.split] if a.split != "all" else df
     if a.limit:
         df = df.sample(n=min(a.limit, len(df)), random_state=1)
-    ex = KeywordExtractor() if a.extractor == "keyword" else EXTRACTORS[a.extractor]()
+    ex = KeywordExtractor() if a.extractor in ("offline", "keyword") else EXTRACTORS[a.extractor]()
 
     rows, errors = [], 0
     for _, r in df.iterrows():

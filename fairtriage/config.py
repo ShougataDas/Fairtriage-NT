@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # "keyword" runs fully offline. "openai", "gemini" and "anthropic" each
     # need their own API key (see PROVIDERS below).
-    extractor: str = "keyword"
+    extractor: str = "offline"
     openai_model: str = "gpt-4.1-mini"      # verify current model names
     # flash-lite: free-tier limits are per model, and full flash allows only 20
     # requests a day. Model names change often: ai.google.dev/gemini-api/docs/models

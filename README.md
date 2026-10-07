@@ -3,15 +3,21 @@
 **Fair, explainable triage of housing repairs for Northern Territory communities.**
 
 A tenant describes a fault in their own words, in plain, hurried or
-second-language English. FairTriage works out what is observably wrong, decides
-how urgent it is, estimates when a tradesperson can come, and explains all of it
-to the tenant and to staff. Maintenance crews get recommended trips that fix as
-many repairs as they safely can on the way. **A person approves every decision.**
+second-language English. FairTriage reads the report with the **Google Gemini
+API**, works out what is observably wrong, decides how urgent it is, estimates
+when a tradesperson can come, and explains all of it to the tenant and to
+staff. Crews get recommended remote trips, daily runs around town and make-safe
+call-outs, each with a map and a probable cost. **A person approves every
+decision.**
 
-Built for the CDU IT Code Fair, Trusted AI decision-support challenge.
+Built for the CDU IT Code Fair, Trusted AI decision-support challenge:
+*how might we help a coordinator prioritise urgent repairs across remote NT
+communities without "efficiency" quietly pushing remote tenants to the back
+of the queue?*
 
 ![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
+![Gemini](https://img.shields.io/badge/Google-Gemini%20API-4285F4?logo=google&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-database-47A248?logo=mongodb&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-550%20passing-2f6b4f)
@@ -25,26 +31,40 @@ Built for the CDU IT Code Fair, Trusted AI decision-support challenge.
   clarifying question, and only when the answer changes the priority
   ("Is this the only toilet in the house?").
 - A clear answer that starts with **when to expect someone**, then why the job
-  has its priority, your place in the queue, and how to stay safe while you wait.
-- A danger like fire or someone hurt is told to **call 000 first**, before
-  anything else.
-- Track the repair by reference number, including the trip that will reach you.
+  has its priority, your place in the queue, that the same repair in Darwin
+  would be in the same place, and how to stay safe while you wait.
+- A danger like fire, violence or someone hurt is told to **call 000 first**,
+  before anything else, and staff are alerted to phone.
+- **Track** the repair by reference number: a live estimate that counts down,
+  what you were told on the day, and the trip or run that will reach you.
+- **Ask why** your repair is where it is ("Why is my repair not first?",
+  "Why was my repair moved down?") and get an answer built from your record and
+  today's queue. Not satisfied? **Ask a person to review it.**
 
 **For staff**
-- A live, ranked queue with an **area-by-area chart** of open repairs by
-  priority (click an area to filter), search, a "needs a phone call" list,
-  and **CSV / Excel download**.
+- A live, ranked queue with a **priority filter** (any mix of Immediate,
+  Urgent, Routine, past target), an **area-by-area chart**, search, a
+  "needs a phone call" list (danger, still unclear, tenant review requests),
+  an **Immediate backlog alert** when make-safe work would miss its 4-hour
+  target, and **CSV / Excel download** of exactly what is filtered.
 - Each job shows the arithmetic behind its priority, flags that need a person,
-  and exactly what the tenant was told. Approve, change the tier (with a reason
-  the tenant sees), or ask for more information.
-- A **trip planner** with a map: routes to remote communities, stops added on
-  the way, expected arrival for every tenant, and why each trip is worth
-  approving (repairs covered, travel saved, tenants reached sooner).
+  the live wait against what the tenant was told, and exactly what the tenant
+  read. Approve, change the tier (with a reason the tenant sees), or **ask the
+  tenant a question**: the answer is read with the report and the job is
+  reassessed at once.
+- A **trip planner** with a map: **remote trips** (routes, stops added on the
+  way, charter flights, the crew that arrives soonest from any depot),
+  **daily runs** in Darwin, Palmerston and nearby towns, and **make-safe
+  call-outs** for Immediate jobs in town. Every repair has its own pin.
+  Each trip shows why it is worth approving and a **probable cost** (fuel,
+  charter, accommodation, labour, parts, contingency), compared with separate
+  trips.
 - **Approved trips** with live counts (active, completed, cancelled). Cancel an
   approval or take one job off a trip (with a reason): the jobs go back to the
-  queue as before. Mark a trip completed when the crew is done. Every change
-  is kept in the trip's history.
-- **Fairness measurements** computed from the live queue.
+  queue. Every change is kept in the trip's history.
+- **Fairness measurements** from the live queue, and a **trip-policy what-if
+  slider**: see how long remote routine work waits at each setting, against
+  Darwin, with the trips and cost it takes, and set it with a recorded reason.
 
 ## Principles
 
@@ -53,20 +73,22 @@ Built for the CDU IT Code Fair, Trusted AI decision-support challenge.
 2. **Where you live never changes your place in the queue.** Distance changes
    *when* a crew can arrive, never *where* a job ranks. The ranking code has no
    distance variable, and every job shows the rank it would have in Darwin.
-3. **Every decision is explainable.** Priorities are plain arithmetic over
-   facts a person can check. Tenant messages are checked before they are shown:
-   no invented numbers, no promises.
+3. **Every decision is explainable.** The model reads; it never decides.
+   Priorities are plain arithmetic over facts a person can check. Tenant
+   messages are checked before they are shown: no invented numbers, no promises.
 4. **Ask, don't guess.** If one missing fact would change the outcome, the
    system asks one question and waits.
-5. **Nothing dispatches itself.** The system recommends; staff decide.
+5. **Nothing dispatches itself.** The system recommends; staff decide, and the
+   equity trade-off between cheap town-first work and fair remote service is
+   shown, priced, and owned by a person.
 
 ## How it works
 
 ```mermaid
 flowchart LR
     T[Tenant report] --> N[Spelling normaliser]
-    N --> R["Reader<br/>(triage engine or AI model)"]
-    R --> F["Six checkable facts<br/>danger, essential service, extent..."]
+    N --> R["Gemini API reader<br/>(strict JSON schema)"]
+    R --> F["Observable facts<br/>danger, essential service, extent..."]
     F -->|decisive fact missing| Q[Ask one question]
     Q --> R
     F --> P["Policy<br/>tier + need score"]
@@ -75,52 +97,61 @@ flowchart LR
     W --> X
     X --> DB[(MongoDB)]
     DB --> S[Staff queue]
-    DB --> TP["Trip planner<br/>routes, stops, arrivals"]
+    DB --> TP["Trip planner<br/>trips, daily runs, cost"]
+    DB --> A["Tenant: track,<br/>ask why, review"]
     S --> H{Staff decision}
     TP --> H
 ```
 
-- **Reading.** Messages are read by the offline FairTriage triage engine by
-  default: instant, and it works without internet. An AI model (Gemini, OpenAI
-  or Claude) can be switched on; if it is slow or unavailable, the engine
-  answers within 12 seconds and the job is flagged for review.
+- **Reading with Gemini.** Each report goes to the Google Gemini API
+  (`gemini-3.1-flash-lite`) with a strict JSON schema generated from the fact
+  model, at temperature 0, with a prompt that defines every fact and its edge
+  cases. The reply is validated before it is used. Gemini turns the message
+  into a handful of facts a person could check (is someone in danger, is an
+  essential service lost, how much of the house is affected); it never sets a
+  priority. A tenant never waits on a busy model: each message gets at most
+  12 seconds, a failing model is paused for five minutes, readings are cached,
+  and if Gemini is busy or no key is set, a built-in offline reader produces
+  the same facts at once and the job is flagged for review. OpenAI and Claude
+  can be used through the same contract.
 - **Ranking.** A strict tier ladder (Immediate, then Urgent, then Routine),
   then a need score within the tier from habitability, extent, containment
-  and vulnerability.
+  and vulnerability. No distance term.
 - **Waiting.** Booking lead time, plus the hours of same-trade work ranked
   ahead in the region divided by that trade's crews, plus mobilisation and
-  travel to remote communities. Remote routine jobs wait for the next trip.
-  Recalculated live, so the queue and the tenant's page count down.
-- **Trips.** The fastest route and slower alternatives over an NT road network
-  (closed roads removed, restricted roads slowed). Jobs on the way are added
-  in need order, never quickest first, only while nobody is made to wait
-  too long.
+  travel. Immediate work uses on-call make-safe capacity. Remote routine jobs
+  wait for the next trip. Recalculated live, so the queue and the tenant's
+  page count down.
+- **Remote trips.** The fastest route and slower alternatives over an NT road
+  network (closed roads removed, restricted roads slowed, charter legs). Jobs
+  on the way are added in need order, never quickest first, only while nobody
+  is made to wait too long. The crew that arrives soonest goes, from any depot.
 - **Daily runs and make-safe call-outs.** In Darwin, Palmerston and towns
   within daily reach, each run starts with the highest-ranked job still
   waiting for that trade and adds nearby jobs of the same trade in need order
   while the crew's day has room (at most 30 minutes' extra driving each).
   Visits are ordered by road; that never changes who is served. An Immediate
   job in town is a make-safe call-out of its own, never bundled.
-- **Ask why.** On the tracking page a tenant asks why their repair is where
-  it is and gets an answer built from their record and today's queue: who is
-  ahead and why (more dangerous, more need, or reported earlier), that where
-  they live did not change their place, what changed since they reported (a
-  staff decision and its reason, trips that were full), and what would move
-  it up. Not satisfied, they ask a person to review it: it goes on the
-  coordinator's phone list until someone records a decision.
-- **Staff ask the tenant.** "Ask tenant" sends the coordinator's question; the
-  answer is read with the report and the job is assessed again at once.
-- **Trip policy what-if.** On the Fairness page a coordinator moves a slider
-  and sees what each trip threshold means: how long remote routine work waits,
-  how that compares with Darwin, how many trips a month and what they cost.
-  They set it with a reason; it is recorded, and the planner and every live
-  remote wait follow at once. The cheaper-town-first trade-off, priced and
-  owned by a person.
 - **Trip cost.** Each recommended trip shows a probable cost range: fuel,
   vehicle running costs and charter flights; accommodation, meals, freight
   and local vehicle hire; labour for every person for travel and on-site
-  hours; parts and a stated contingency. Shown for budgeting and compared
-  with separate trips, never used to decide who is served.
+  hours; parts and a stated contingency. Rates were checked against public
+  sources (ATO allowances, NT diesel prices, Darwin trade rates, charter
+  rates). Shown for budgeting and compared with separate trips, **never used
+  to decide who is served**.
+- **Ask why.** A tenant asks why their repair is where it is and gets an answer
+  assembled from their record and today's queue: who is ahead and why (more
+  dangerous, more need, or reported earlier), that where they live did not
+  change their place, what changed since they reported (a staff decision and
+  its reason, trips that were full), and what would move it up. A review
+  request goes on the coordinator's phone list until someone records a
+  decision.
+- **Trip policy what-if.** How long remote routine work waits is set by one
+  number: a community gets a trip when its oldest routine job has waited a
+  multiple of its target. On the Fairness page a coordinator moves a slider
+  and sees the remote wait, the ratio to Darwin, the trips a month and their
+  cost at each setting, then sets it with a reason. The planner and every live
+  remote wait follow at once.
 
 The full design, test findings and evaluation are in
 **[docs/DESIGN.md](docs/DESIGN.md)**.
@@ -129,19 +160,21 @@ The full design, test findings and evaluation are in
 
 | Part | Technology |
 |---|---|
+| AI reader | **Google Gemini API** (strict JSON schema, temperature 0); OpenAI and Anthropic Claude through the same contract |
 | Backend API | Python 3.10+, FastAPI, Pydantic |
 | Request pipeline | LangGraph (the clarifying-question pause is stored in MongoDB) |
-| Database | MongoDB (pymongo); in-memory mongomock for tests |
+| Database | MongoDB (Atlas in production, pymongo); in-memory mongomock for tests |
 | Routing | networkx over `reference/road_network.csv` |
 | Web app | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, SWR |
 | Map | Leaflet + OpenStreetMap |
-| Optional AI readers | Gemini, OpenAI, Anthropic Claude (structured output, temperature 0) |
+| Hosting | Vercel (backend and web app), MongoDB Atlas |
 
 ## Getting started
 
 ### Prerequisites
 
 - **Python 3.10+** and **Node.js 20+**
+- A **Gemini API key** (free at [Google AI Studio](https://aistudio.google.com/))
 - **MongoDB**, one of:
   - [MongoDB Community Server](https://www.mongodb.com/try/download/community)
     installed on your computer ("Install as a service"), or
@@ -149,16 +182,23 @@ The full design, test findings and evaluation are in
     `mongodb+srv://...` connection string), or
   - Docker: `docker compose up` starts MongoDB and the backend together.
 
-### 1. Clone
+### 1. Clone and configure
 
 ```bash
 git clone https://github.com/ShougataDas/Fairtriage-NT.git
 cd Fairtriage-NT
 ```
 
-No settings file is needed: the defaults work with a local MongoDB and no API
-keys. To change a setting, create a file named `.env` in this folder (it is
-never committed) with any of the variables under [Configuration](#configuration).
+Create a file named `.env` in this folder (it is never committed):
+
+```
+FAIRTRIAGE_EXTRACTOR=gemini
+GEMINI_API_KEY=your-gemini-key
+FAIRTRIAGE_MONGO_URL=mongodb://localhost:27017
+```
+
+Without a Gemini key the app still runs: the offline reader answers every
+report and staff screens say which reader is live.
 
 ### 2. Backend
 
@@ -168,10 +208,13 @@ python scripts/seed_demo.py
 python -m uvicorn fairtriage.api:app --reload --port 8000
 ```
 
-`seed_demo.py` fills the database with about 100 realistic demo requests
-(it empties the database first). At most 8 Immediate jobs are left open, a
-few hours old; the rest are recorded as already made safe. Demo data ages
-as the days pass, so seed again before a demo.
+`seed_demo.py` fills the database with about 115 realistic demo requests
+(it empties the database first), including clusters of jobs around
+Palmerston, the inner city and the northern suburbs. At most 8 Immediate jobs
+are left open, a few hours old; the rest are recorded as already made safe.
+Demo data ages as the days pass, so seed again before a demo. It reads the
+seed rows offline by default to save API quota; add `--model` to read them
+with Gemini.
 
 ### 3. Web app (in a second terminal)
 
@@ -186,11 +229,11 @@ Open **http://localhost:3000**.
 | Page | Who | What |
 |---|---|---|
 | `/report` | Tenants | Report a repair |
-| `/track/<reference>` | Tenants | Progress, explanation, trip update |
-| `/coordinator` | Staff | Ranked queue, phone list, CSV / Excel download |
-| `/coordinator/requests/<id>` | Staff | Priority breakdown, flags, decision |
-| `/coordinator/trips` | Staff | Trip planner with map |
-| `/coordinator/fairness` | Staff | Fairness measurements |
+| `/track/<reference>` | Tenants | Progress, live estimate, trip update, ask why, ask for a review |
+| `/coordinator` | Staff | Ranked queue, priority filter, alerts, phone list, chart, download |
+| `/coordinator/requests/<id>` | Staff | Priority breakdown, flags, live wait, decision |
+| `/coordinator/trips` | Staff | Remote trips, daily runs, make-safe call-outs, map, cost, approvals |
+| `/coordinator/fairness` | Staff | Fairness measurements and the trip-policy what-if slider |
 
 The web app calls the backend through `/api`. To use a backend somewhere
 else, set `FAIRTRIAGE_API=https://your-backend` before `npm run dev` or
@@ -203,46 +246,44 @@ and 3.
 
 Settings are read from environment variables, or from a `.env` file in the
 project folder. `.env` is ignored by git, so keys never reach the repository.
-For example:
-
-```
-FAIRTRIAGE_MONGO_URL=mongodb+srv://user:password@cluster0.example.mongodb.net
-FAIRTRIAGE_EXTRACTOR=keyword
-```
 
 | Variable | Default | Purpose |
 |---|---|---|
+| `FAIRTRIAGE_EXTRACTOR` | `offline` | Who reads messages: `gemini` (recommended), `openai`, `anthropic`, or `offline` |
+| `GEMINI_API_KEY` | empty | Your Gemini API key |
+| `FAIRTRIAGE_GEMINI_MODEL` | `gemini-3.1-flash-lite` | Gemini model to use |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | empty | Keys if you use OpenAI or Claude instead |
+| `FAIRTRIAGE_LLM_BUDGET_S` | `12` | Longest a tenant waits for the model before the offline reader answers |
 | `FAIRTRIAGE_MONGO_URL` | `mongodb://localhost:27017` | MongoDB connection string (Atlas: `mongodb+srv://...`) |
 | `FAIRTRIAGE_MONGO_DB` | `fairtriage` | Database name |
-| `FAIRTRIAGE_EXTRACTOR` | `keyword` | Who reads messages: `keyword` (offline engine), `gemini`, `openai`, `anthropic` |
-| `GEMINI_API_KEY` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | empty | Key for the chosen AI reader |
-| `FAIRTRIAGE_GEMINI_MODEL` / `_OPENAI_MODEL` / `_ANTHROPIC_MODEL` | `gemini-3.1-flash-lite` / `gpt-4.1-mini` / `claude-haiku-4-5-20251001` | Override the model name |
-| `FAIRTRIAGE_LLM_BUDGET_S` | `12` | Longest a tenant waits for a model before the engine answers |
 
-Every ranking weight, service target, wait assumption and trip rule is in
-[`config/policy.yaml`](config/policy.yaml), versioned, and shown on screen
-where it is used.
+Every ranking weight, service target, wait assumption, trip rule and cost rate
+is in [`config/policy.yaml`](config/policy.yaml), versioned, and shown on
+screen where it is used.
 
 ## Tests
 
 ```bash
 python -m pytest tests/ -q
 python scripts/run_scenarios.py
-python scripts/run_eval.py
+python scripts/run_eval.py --extractor gemini --limit 300
 ```
 
-The first runs 550 tests on an in-memory database, so no server is needed.
-The second runs the 16 demo scenarios in [TEST_CASES.md](TEST_CASES.md). The
-third scores reading against the 12,000-row dataset in `data/`.
+The first runs 550 tests on an in-memory database, so no server, network or
+API key is needed (the Gemini path is tested with a stand-in client). The
+second runs the 16 demo scenarios in [TEST_CASES.md](TEST_CASES.md). The third
+scores reading against the 12,000-row dataset in `data/` with Gemini (omit
+`--extractor` to score the offline reader).
 
 To run the same tests against a real MongoDB, set
 `FAIRTRIAGE_TEST_MONGO_URL=mongodb://localhost:27017` first.
 
 The suite covers about 100 maintenance scenarios (electrical, gas, water,
 sewage, storm, structural, security, falls, asbestos, remote water supply,
-appliances, pests and more), emergencies, hedged and second-language
-wording, fairness (rank never depends on location), the trip planner's rules,
-the API and the exports.
+appliances, pests and more), emergencies, hedged, second-language, Aboriginal
+English and Kriol wording, fairness (rank never depends on location; cost never
+changes a plan), the trip planner and daily runs, wait times, Ask why, staff
+decisions, the trip policy, the API and the exports.
 
 ## API
 
@@ -251,38 +292,51 @@ JSON endpoints under `/api` (interactive docs at `http://localhost:8000/docs`):
 | Method | Endpoint | Purpose |
 |---|---|---|
 | POST | `/api/requests` | Lodge a report `{text, community, address, phone?, vulnerability[]}` |
-| POST | `/api/requests/{id}/clarify` | Answer the clarifying question |
-| GET | `/api/requests/{id}` | Full record: assessment, history, trip |
-| POST | `/api/requests/{id}/decision` | Approve, override (with reason) or request info |
+| POST | `/api/requests/{id}/clarify` | Answer a question (the system's or a coordinator's) |
+| GET | `/api/requests/{id}` | Full record: assessment, live wait, history, trip |
+| POST | `/api/requests/{id}/why` | Tenant asks why: an answer built from the record |
+| POST | `/api/requests/{id}/review` | Tenant asks a person to review it |
+| POST | `/api/requests/{id}/decision` | Approve, override (with reason) or ask the tenant |
 | GET | `/api/queue` | Ranked queue (`?tier=`, `?community=`, `?order=cost` for contrast) |
-| GET | `/api/export` | Download `?format=csv\|xlsx&scope=queue\|all` |
-| GET | `/api/trips/preview` | Recommended trips with routes, map coordinates and benefits |
-| POST | `/api/trips/plan` | Approve all trips, or one with `?anchor=<id>` |
-| GET | `/api/trips` | Approved trips with status and history |
+| GET | `/api/contacts` | The phone list: danger, unclear, withdrawals, review requests |
+| GET | `/api/alerts` | Immediate work past the make-safe target, by trade and region |
+| GET | `/api/export` | Download `?format=csv\|xlsx&scope=queue\|all&tier=Immediate,Urgent&past=true` |
+| GET | `/api/trips/preview` | Recommended trips, daily runs and call-outs, with maps, benefits and cost |
+| POST | `/api/trips/plan` | Approve all, or one with `?anchor=<id>` |
+| GET | `/api/trips` | Approved trips with status, cost and history |
 | POST | `/api/trips/{id}/cancel` | Withdraw an approval `{reason}`: jobs return to the queue |
 | POST | `/api/trips/{id}/remove` | Take one job off a trip `{request_id, reason}` |
 | POST | `/api/trips/{id}/complete` | Mark the trip's jobs completed |
+| GET / POST | `/api/policy/trip-threshold` | What-if scenarios; set the trip threshold `{multiple, reason}` |
 | GET | `/api/metrics/equity` | Fairness measurements |
-| GET | `/api/health` | Service, database and reader status |
+| GET | `/api/health` | Service, database, policy and reader status |
 
 ## Project structure
 
 ```
 fairtriage/          Python backend
   api.py             HTTP API (and the original server-rendered pages)
-  extract.py         Readers: offline triage engine, Gemini / OpenAI / Claude
+  extract.py         Readers: Gemini API (and OpenAI / Claude), offline reader, cache, fallback
+  schemas.py         The fact model: drives Gemini's JSON schema and validation
   normalise.py       Spelling normaliser that never touches hazard words
   graph.py           LangGraph pipeline with the clarifying-question pause
   policy.py          Tier and need score: pure arithmetic, no model
+  queue.py           Queue position and the location-free Darwin rank
   wait.py            Wait estimates
   explain.py         Tenant and staff explanations, and their verifier
-  scheduler.py       Trip planner
+  askwhy.py          The tenant's "why" answer and review requests
+  service.py         Lodging, questions, assessments, decisions, live waits, phone list
+  scheduler.py       Trip planner: remote trips, daily runs, make-safe call-outs
   routing.py         Road network and alternative routes
+  cost.py            Probable trip cost
+  whatif.py          Trip-policy what-if scenarios
+  tripsettings.py    The coordinator's trip-threshold setting and its history
+  metrics.py         Fairness measurements
+  reference.py       Places, distances, crews, road status
   db.py              MongoDB storage with append-only history
   export.py          CSV and Excel export
-  metrics.py         Fairness measurements
 frontend/            Next.js web app (presentation only; calls the API)
-config/policy.yaml   Every weight and threshold
+config/policy.yaml   Every weight, threshold and rate
 reference/           Communities, road network, crews, road status
 scripts/             Seeding, evaluation, scenario runner, data builders
 tests/               550 tests
@@ -304,14 +358,14 @@ repository**, with the data in **MongoDB Atlas**.
 **2. Backend project**
 - *New Project* → import this repository. Root Directory `./`, preset
   **FastAPI**. It finds the app through `app.py`.
-- Environment variable: `FAIRTRIAGE_MONGO_URL` = your Atlas string. Add
-  `FAIRTRIAGE_EXTRACTOR` and a key only if you switch an AI reader on.
+- Environment variables: `FAIRTRIAGE_MONGO_URL` = your Atlas string;
+  `FAIRTRIAGE_EXTRACTOR` = `gemini` and `GEMINI_API_KEY` = your key.
 - Deploy, then open `https://<backend>.vercel.app/api/health`: it should
-  report `"database": "connected"`.
+  report `"database": "connected"` and the reader in use.
 
-Vercel installs only `requirements.txt` (the server, about 210 MB). Tests,
-seeding and evaluation use `requirements-dev.txt`. `.vercelignore` leaves the
-web app, tests and dataset out of the backend bundle.
+Vercel installs only `requirements.txt` (the server). Tests, seeding and
+evaluation use `requirements-dev.txt`. `.vercelignore` leaves the web app,
+tests and dataset out of the backend bundle.
 
 **3. Web app project**
 - *New Project* → import the same repository again. Root Directory
@@ -323,14 +377,19 @@ web app, tests and dataset out of the backend bundle.
 ## Limitations
 
 - **Placeholder data:** crew numbers and their split by trade, booking lead
-  times, mobilisation times and community
-  coordinates are placeholders; road distances and speeds are approximate.
-  Remote service targets are unverified (see `config/policy.yaml`).
-- **No sign-in yet:** anyone who can reach the staff pages can act on them.
-- **AI readers not evaluated live:** they are tested with stand-ins for the
-  APIs, not against the live services.
+  times, mobilisation times, some cost rates and community coordinates are
+  placeholders; road distances and speeds are approximate. Remote service
+  targets are unverified (see `config/policy.yaml`).
+- **Gemini free tier:** in testing, the free tier was often busy; a paid or
+  higher-quota key is recommended for real use. The reading evaluation should
+  be re-run with Gemini on such a key.
+- **No sign-in yet:** the staff pages are open for this test so every feature
+  can be tried. Every decision already records an actor, a reason and a time;
+  in production the actor would come from department sign-in.
+- **Synthetic dataset:** labels were derived by rule, not by people. A
+  human-labelled sample is needed before quoting accuracy.
 - **Designed without the communities it concerns.** Before real use it would
   need community consultation, real maintenance data, and governance over who
-  sets the weights.
+  sets the weights and the trip policy.
 
 More in [docs/DESIGN.md](docs/DESIGN.md#known-limitations).
