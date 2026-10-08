@@ -202,6 +202,33 @@ class ClarifyIn(BaseModel):
     answer: str = Field(min_length=1, max_length=500)
 
 
+class RegisterIn(BaseModel):
+    phone: str = Field(min_length=6, max_length=30)
+    password: str = Field(min_length=1, max_length=200)
+    name: Optional[str] = Field(default=None, max_length=80)
+
+
+class SignInIn(BaseModel):
+    kind: str = Field(pattern="^(tenant|staff)$")
+    identifier: str = Field(min_length=1, max_length=60)
+    password: str = Field(min_length=1, max_length=200)
+
+
+class ClaimIn(BaseModel):
+    reference: str = Field(min_length=6, max_length=30)
+
+
+class StaffIn(BaseModel):
+    username: str = Field(min_length=1, max_length=40)
+    name: Optional[str] = Field(default="", max_length=80)
+    password: str = Field(min_length=1, max_length=200)
+    role: str = "staff"
+
+
+class PasswordIn(BaseModel):
+    password: str = Field(min_length=1, max_length=200)
+
+
 class ResendIn(BaseModel):
     phone: str = Field(min_length=6, max_length=30)
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { SiteHeader } from "@/components/SiteHeader";
+import { RoleGate } from "@/components/RoleGate";
 import "./globals.css";
 
 // Atkinson Hyperlegible: designed for low-vision readers. Many tenants read
@@ -28,7 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </a>
         <SiteHeader />
         <main id="main" className="mx-auto w-full min-w-0 max-w-7xl flex-1 px-4 py-8 sm:px-6 sm:py-10">
-          {children}
+          <RoleGate>{children}</RoleGate>
         </main>
         <footer className="border-t border-line bg-paper">
           <div className="mx-auto max-w-7xl px-4 py-5 text-sm text-muted sm:px-6">

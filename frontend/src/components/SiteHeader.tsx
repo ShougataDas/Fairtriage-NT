@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { House } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { House, LogIn, LogOut, UserRound } from "lucide-react";
 import { cx } from "@/lib/format";
+import { isStaff, signOut, useMe } from "@/lib/auth";
 
 /** Fired when a nav link for the page already open is clicked. Next.js does not
  * remount a page for a link to itself, so a page with steps (the report form)
@@ -20,17 +21,24 @@ const staffLinks = [
   { href: "/coordinator/fairness", label: "Fairness" },
 ];
 
+/** Links follow who is signed in: tenants and visitors never see the staff
+ *  area, and staff see only the staff area. */
 export function SiteHeader() {
   const path = usePathname();
-  const staff = path.startsWith("/coordinator");
-  const links = staff ? staffLinks : tenantLinks;
+  const router = useRouter();
+  const { user } = useMe();
+  const staff = isStaff(user);
+  const links = staff
+    ? [...staffLinks, ...(user?.role === "admin" ? [{ href: "/coordinator/staff", label: "Staff accounts" }] : [])]
+    : [...tenantLinks, ...(user?.role === "tenant" ? [{ href: "/my-repairs", label: "My repairs" }] : [])];
   const active = (href: string) =>
     href === "/coordinator" ? path === "/coordinator" || path.startsWith("/coordinator/requests") : path.startsWith(href);
+  const who = user ? user.name || user.username || (user.phone ? `0${user.phone.slice(3, 6)} ••• ${user.phone.slice(-3)}` : "") : "";
 
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-paper/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
-        <Link href="/" className="flex items-center gap-2 font-bold text-graphite">
+        <Link href={staff ? "/coordinator" : "/"} className="flex items-center gap-2 font-bold text-graphite">
           <span className="grid size-8 place-items-center rounded-lg bg-ink text-white">
             <House className="size-4" aria-hidden />
           </span>
@@ -55,9 +63,28 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
-        <Link href={staff ? "/report" : "/coordinator"} className="text-sm font-bold text-ink underline-offset-4 hover:underline">
-          {staff ? "Tenant view" : "Staff area"}
-        </Link>
+        {user ? (
+          <div className="flex items-center gap-3 text-sm">
+            <span className="flex items-center gap-1.5 font-bold text-graphite">
+              <UserRound className="size-4" aria-hidden /> {who}
+            </span>
+            <button
+              onClick={async () => {
+                await signOut();
+                router.replace(staff ? "/signin?as=staff" : "/");
+              }}
+              className="flex items-center gap-1 font-bold text-ink underline-offset-4 hover:underline"
+            >
+              <LogOut className="size-4" aria-hidden /> Sign out
+            </button>
+          </div>
+        ) : (
+          !path.startsWith("/signin") && (
+            <Link href="/signin" className="flex items-center gap-1 text-sm font-bold text-ink underline-offset-4 hover:underline">
+              <LogIn className="size-4" aria-hidden /> Sign in
+            </Link>
+          )
+        )}
       </div>
     </header>
   );

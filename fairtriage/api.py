@@ -9,18 +9,20 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Optional
 
-from fastapi import FastAPI, Form, HTTPException, Request as HttpRequest
+from fastapi import Depends, FastAPI, Form, HTTPException, Request as HttpRequest
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from . import metrics, scheduler, service
+from . import auth, metrics, scheduler, service
 from .config import policy, reader_status
 from .reference import communities, road_km, trade_capacity
-from .schemas import ClarifyIn, DecisionIn, LodgeIn, ResendIn, ReviewIn, ThresholdIn, TripChangeIn, WhyIn
+from .schemas import (ClaimIn, ClarifyIn, DecisionIn, LodgeIn, PasswordIn, RegisterIn, ResendIn,
+                      ReviewIn, SignInIn, StaffIn, ThresholdIn, TripChangeIn, WhyIn)
 
 WEB = Path(__file__).parent / "web"
 app = FastAPI(title="FairTriage NT", version="3.0")
+STAFF = Depends(auth.require_staff)          # every staff route checks the session
 app.mount("/static", StaticFiles(directory=WEB / "static"), name="static")
 T = Jinja2Templates(directory=WEB / "templates")
 T.env.globals["reader_status"] = reader_status
@@ -56,7 +58,7 @@ def _docket_ctx(rid: str, result: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 @app.post("/api/requests")
-def api_lodge(inp: LodgeIn):
+def api_lodge(inp: LodgeIn, user: dict | None = Depends(auth.optional_user)):
     """Lodge a report. A mobile number is required: the tenant is texted their
     reference and the message they are shown, so a lost reference never means
     a lost repair."""
@@ -68,16 +70,34 @@ def api_lodge(inp: LodgeIn):
         out = service.lodge(inp.model_copy(update={"phone": mobile}))
     except service.Invalid as e:
         raise HTTPException(422, str(e))
+    if user and user["role"] == "tenant":
+        from . import db
+        db.update_request(out["request_id"], {"owner_id": user["_id"]})
     out["sms"] = sms.after_result(out)
     return out
 
 
+# what only staff see on a request: anyone with a reference can open it
+STAFF_ONLY_FIELDS = ("phone", "extractions", "text_normalised", "sms")
+
+
 @app.get("/api/requests/{rid}")
-def api_get(rid: str):
+def api_get(rid: str, user: dict | None = Depends(auth.optional_user)):
     try:
-        return service.request_view(rid)
+        view = service.request_view(rid)
     except service.NotFound:
         raise HTTPException(404, "no such request")
+    if user and user["role"] in ("staff", "admin"):
+        return view
+    for k in STAFF_ONLY_FIELDS:
+        view.pop(k, None)
+    if view.get("assessment"):
+        a = dict(view["assessment"])
+        a.pop("explanation_coordinator", None)
+        a["flags"] = [f for f in a.get("flags") or [] if f.get("audience") != "coordinator"]
+        view["assessment"] = a
+    view["decisions"] = [{k: v for k, v in d.items() if k != "actor"} for d in view.get("decisions", [])]
+    return view
 
 
 @app.post("/api/requests/{rid}/clarify")
@@ -91,6 +111,74 @@ def api_clarify(rid: str, inp: ClarifyIn):
         raise HTTPException(404, "no such request")
     except service.Invalid as e:
         raise HTTPException(409, str(e))
+
+
+# ---------------------------------------------------------------------------
+# Sign-in
+# ---------------------------------------------------------------------------
+
+def _auth_call(fn):
+    try:
+        return fn()
+    except auth.AuthError as e:
+        raise HTTPException(e.status, e.message)
+
+
+@app.post("/api/auth/register")
+def api_register(inp: RegisterIn, request: HttpRequest, response: Response):
+    """A tenant creates an account with their mobile and a password."""
+    user = _auth_call(lambda: auth.register_tenant(inp.phone, inp.password, inp.name))
+    auth.set_session(response, request, user)
+    return {"user": auth.public(user)}
+
+
+@app.post("/api/auth/signin")
+def api_signin(inp: SignInIn, request: HttpRequest, response: Response):
+    user = _auth_call(lambda: auth.sign_in(inp.kind, inp.identifier, inp.password))
+    auth.set_session(response, request, user)
+    return {"user": auth.public(user)}
+
+
+@app.post("/api/auth/signout")
+def api_signout(response: Response):
+    auth.clear_session(response)
+    return {"ok": True}
+
+
+@app.get("/api/auth/me")
+def api_me(user: dict | None = Depends(auth.optional_user)):
+    """Who is signed in, or null. Always 200, so a signed-out page is not an error."""
+    return {"user": auth.public(user) if user else None}
+
+
+@app.get("/api/me/requests")
+def api_my_requests(user: dict = Depends(auth.require_tenant)):
+    return auth.my_requests(user)
+
+
+@app.post("/api/me/claim")
+def api_claim(inp: ClaimIn, user: dict = Depends(auth.require_tenant)):
+    return _auth_call(lambda: auth.claim(user, inp.reference))
+
+
+@app.get("/api/staff/users")
+def api_staff_users(admin: dict = Depends(auth.require_admin)):
+    return auth.list_staff()
+
+
+@app.post("/api/staff/users")
+def api_staff_add(inp: StaffIn, admin: dict = Depends(auth.require_admin)):
+    return _auth_call(lambda: auth.add_staff(inp.username, inp.name or "", inp.password, inp.role))
+
+
+@app.post("/api/staff/users/{user_id}/active")
+def api_staff_active(user_id: str, active: bool, admin: dict = Depends(auth.require_admin)):
+    return _auth_call(lambda: auth.set_active(admin, user_id, active))
+
+
+@app.post("/api/staff/users/{user_id}/password")
+def api_staff_password(user_id: str, inp: PasswordIn, admin: dict = Depends(auth.require_admin)):
+    return _auth_call(lambda: auth.reset_password(user_id, inp.password))
 
 
 @app.post("/api/sms/resend")
@@ -124,8 +212,9 @@ def api_review(rid: str, inp: ReviewIn):
 
 
 @app.post("/api/requests/{rid}/decision")
-def api_decide(rid: str, d: DecisionIn):
+def api_decide(rid: str, d: DecisionIn, user: dict = STAFF):
     from . import sms
+    d = d.model_copy(update={"actor": auth.actor_of(user)})      # recorded under their name
     try:
         out = service.decide(rid, d)
         # a changed tier or a staff question reaches the tenant by text too
@@ -138,7 +227,7 @@ def api_decide(rid: str, d: DecisionIn):
         raise HTTPException(422, str(e))
 
 
-@app.get("/api/queue")
+@app.get("/api/queue", dependencies=[STAFF])
 def api_queue(tier: Optional[str] = None, community: Optional[str] = None,
               order: str = "need"):
     """The ranked queue. order=cost shows, for contrast only, how an
@@ -156,7 +245,7 @@ def api_queue(tier: Optional[str] = None, community: Optional[str] = None,
     return rows
 
 
-@app.get("/api/export")
+@app.get("/api/export", dependencies=[STAFF])
 def api_export(format: str = "csv", scope: str = "queue", tier: Optional[str] = None,
                remote: Optional[bool] = None, q: Optional[str] = None,
                area: Optional[str] = None, past: Optional[bool] = None):
@@ -180,25 +269,25 @@ def api_communities():
             for g, names in _community_groups()]
 
 
-@app.get("/api/alerts")
+@app.get("/api/alerts", dependencies=[STAFF])
 def api_alerts():
     """Immediate work that cannot be made safe within the target, by region and trade."""
     return service.backlog_alerts()
 
 
-@app.get("/api/contacts")
+@app.get("/api/contacts", dependencies=[STAFF])
 def api_contacts():
     """Reports a person must phone about: still unclear, or a withdrawal."""
     return service.contact_list()
 
 
-@app.get("/api/trips")
+@app.get("/api/trips", dependencies=[STAFF])
 def api_trips():
     """Confirmed trips, newest first."""
     return scheduler.trips_view()
 
 
-@app.get("/api/trips/preview")
+@app.get("/api/trips/preview", dependencies=[STAFF])
 def api_trip_preview():
     """The recommended trips right now. Recomputed on every call, so it follows
     the queue, priorities and crew locations as they change. Stores nothing."""
@@ -208,7 +297,7 @@ def api_trip_preview():
             "trips": [scheduler.to_dict(t) for t in scheduler.plan(commit=False)]}
 
 
-@app.post("/api/trips/plan")
+@app.post("/api/trips/plan", dependencies=[STAFF])
 def api_plan(anchor: Optional[str] = None):
     """Confirm the recommended trips (or just the one led by `anchor`): jobs
     become scheduled with an arrival time."""
@@ -217,21 +306,23 @@ def api_plan(anchor: Optional[str] = None):
 
 
 @app.post("/api/trips/{trip_id}/cancel")
-def api_trip_cancel(trip_id: str, body: TripChangeIn):
+def api_trip_cancel(trip_id: str, body: TripChangeIn, user: dict = STAFF):
+    body = body.model_copy(update={"actor": auth.actor_of(user)})
     return _trip_change(lambda: scheduler.cancel_trip(trip_id, body.reason, body.actor))
 
 
 @app.post("/api/trips/{trip_id}/remove")
-def api_trip_remove(trip_id: str, body: TripChangeIn):
+def api_trip_remove(trip_id: str, body: TripChangeIn, user: dict = STAFF):
+    body = body.model_copy(update={"actor": auth.actor_of(user)})
     if not body.request_id:
         raise HTTPException(422, "say which job to remove (request_id)")
     return _trip_change(lambda: scheduler.remove_from_trip(trip_id, body.request_id, body.reason, body.actor))
 
 
 @app.post("/api/trips/{trip_id}/complete")
-def api_trip_complete(trip_id: str, body: TripChangeIn | None = None):
-    actor = body.actor if body else "coordinator-demo"
-    return _trip_change(lambda: scheduler.complete_trip(trip_id, actor))
+def api_trip_complete(trip_id: str, body: TripChangeIn | None = None, user: dict = STAFF):
+    body = (body or TripChangeIn()).model_copy(update={"actor": auth.actor_of(user)})
+    return _trip_change(lambda: scheduler.complete_trip(trip_id, body.actor))
 
 
 def _trip_change(fn):
@@ -243,7 +334,7 @@ def _trip_change(fn):
         raise HTTPException(409, str(e))
 
 
-@app.post("/api/teams/{trade_region}")
+@app.post("/api/teams/{trade_region}", dependencies=[STAFF])
 def api_team(trade_region: str, location: str):
     try:
         scheduler.set_team_location(trade_region, location)
@@ -252,7 +343,7 @@ def api_team(trade_region: str, location: str):
     return scheduler.team_locations()
 
 
-@app.get("/api/policy/trip-threshold")
+@app.get("/api/policy/trip-threshold", dependencies=[STAFF])
 def api_threshold_whatif():
     """What each trip-threshold setting means for remote waits, trips and cost."""
     from . import whatif
@@ -260,7 +351,8 @@ def api_threshold_whatif():
 
 
 @app.post("/api/policy/trip-threshold")
-def api_set_threshold(inp: ThresholdIn):
+def api_set_threshold(inp: ThresholdIn, user: dict = STAFF):
+    inp = inp.model_copy(update={"actor": auth.actor_of(user)})
     """A coordinator sets the trip threshold, with a reason. Recorded."""
     from . import tripsettings
     try:
@@ -271,7 +363,7 @@ def api_set_threshold(inp: ThresholdIn):
     return whatif.scenarios()
 
 
-@app.get("/api/metrics/equity")
+@app.get("/api/metrics/equity", dependencies=[STAFF])
 def api_equity():
     return metrics.equity()
 
@@ -280,6 +372,7 @@ def api_equity():
 def health():
     from . import db
     return {"ok": True, "database": "connected" if db.ping() else "unreachable",
+            "auth": auth.status(),
             "policy": policy()["version"], "communities": len(communities()),
             "reader": reader_status(), "rules": _rules_fingerprint(),
             "service_targets_verified": policy().get("service_targets_verified", False)}
@@ -380,7 +473,7 @@ def _cost_order(rows: list[dict]) -> list[dict]:
                                        TIER_ORDER[r["tier"]]))
 
 
-@app.get("/coordinator", response_class=HTMLResponse)
+@app.get("/coordinator", response_class=HTMLResponse, dependencies=[STAFF])
 def coord_queue(request: HttpRequest, order: str = "need", tier: str = "",
                 community: str = ""):
     rows = service.queue_view(tier or None, community or None)
@@ -404,7 +497,7 @@ def coord_queue(request: HttpRequest, order: str = "need", tier: str = "",
         "rules_version": _rules_fingerprint()})
 
 
-@app.get("/coordinator/trips", response_class=HTMLResponse)
+@app.get("/coordinator/trips", response_class=HTMLResponse, dependencies=[STAFF])
 def coord_trips(request: HttpRequest, error: str = ""):
     from .tripsettings import threshold
     t = policy()["trips"]
@@ -416,7 +509,7 @@ def coord_trips(request: HttpRequest, error: str = ""):
         "multiple": threshold()})
 
 
-@app.post("/coordinator/team")
+@app.post("/coordinator/team", dependencies=[STAFF])
 def coord_team(trade_region: Annotated[str, Form()], location: Annotated[str, Form()]):
     try:
         scheduler.set_team_location(trade_region, location)
@@ -426,19 +519,19 @@ def coord_team(trade_region: Annotated[str, Form()], location: Annotated[str, Fo
     return RedirectResponse("/coordinator/trips", status_code=303)
 
 
-@app.post("/coordinator/trips/plan")
+@app.post("/coordinator/trips/plan", dependencies=[STAFF])
 def coord_plan():
     scheduler.plan(commit=True)
     return RedirectResponse("/coordinator/trips", status_code=303)
 
 
-@app.get("/coordinator/equity", response_class=HTMLResponse)
+@app.get("/coordinator/equity", response_class=HTMLResponse, dependencies=[STAFF])
 def coord_equity(request: HttpRequest):
     return T.TemplateResponse(request, "coord_equity.html",
                               {"section": "equity", "m": metrics.equity()})
 
 
-@app.get("/coordinator/{rid}", response_class=HTMLResponse)
+@app.get("/coordinator/{rid}", response_class=HTMLResponse, dependencies=[STAFF])
 def coord_detail(request: HttpRequest, rid: str, error: str = ""):
     try:
         v = service.request_view(rid)
@@ -448,7 +541,7 @@ def coord_detail(request: HttpRequest, rid: str, error: str = ""):
                               {"section": "queue", "r": v, "error": error})
 
 
-@app.post("/coordinator/{rid}/decide")
+@app.post("/coordinator/{rid}/decide", dependencies=[STAFF])
 def coord_decide(rid: str, action: Annotated[str, Form()],
                  to_tier: Annotated[str, Form()] = "",
                  reason: Annotated[str, Form()] = ""):

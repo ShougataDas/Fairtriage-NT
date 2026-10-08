@@ -9,6 +9,7 @@ import { CommunityPicker } from "@/components/CommunityPicker";
 import { Docket } from "@/components/Docket";
 import { SmsNote } from "@/components/SmsNote";
 import { REOPEN_EVENT } from "@/components/SiteHeader";
+import { useMe } from "@/lib/auth";
 import { Button, ButtonLink, ErrorBox, Field, inputClass } from "@/components/ui";
 
 const EXAMPLES = [
@@ -34,6 +35,11 @@ export default function ReportPage() {
   const [community, setCommunity] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
+  // a signed-in tenant's mobile is filled in; the repair goes on their account
+  const { user } = useMe();
+  useEffect(() => {
+    if (user?.role === "tenant" && user.phone && !phone) setPhone("0" + user.phone.slice(3));
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
   const [household, setHousehold] = useState<string[]>([]);
   const [answer, setAnswer] = useState("");
   const [result, setResult] = useState<LodgeResult | null>(null);

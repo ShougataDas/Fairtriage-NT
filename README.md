@@ -20,7 +20,7 @@ of the queue?*
 ![Gemini](https://img.shields.io/badge/Google-Gemini%20API-4285F4?logo=google&logoColor=white)
 ![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-database-47A248?logo=mongodb&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-575%20passing-2f6b4f)
+![Tests](https://img.shields.io/badge/tests-623%20passing-2f6b4f)
 
 ## Live demo
 
@@ -35,11 +35,26 @@ of the queue?*
 | Fairness and trip policy (staff) | https://fairtriage-nt-web-one.vercel.app/coordinator/fairness |
 | Backend API health | https://fairtriage-nt.vercel.app/api/health |
 
-The staff pages are open for this demo so every feature can be tried.
+Staff pages need a staff sign-in. Tenants can report and track a repair
+without an account, or create one to see all their repairs.
 
 ---
 
 ## What it does
+
+**Sign-in and roles**
+- **Tenants** can create an account with their mobile number and a password,
+  and see every repair on it under **My repairs**. Signing in is optional:
+  reporting and tracking by reference never need an account, so nobody facing
+  an emergency is stopped by a login.
+- **Staff** sign in with a username and see **only** the staff area; tenant
+  pages send them to the queue. Tenants and visitors never see the staff area.
+- **Administrators** add, switch off and reset staff accounts. There is no
+  public staff sign-up; the first administrator comes from two settings.
+- The server checks the session on **every** staff request, so hiding links is
+  never the only protection. A repair is linked to a tenant account only when
+  reported while signed in, or added with its reference and the account's
+  own mobile, never by a matching mobile alone.
 
 **For tenants**
 - Report a repair in your own words, with your address and **mobile number**. At most **one**
@@ -248,12 +263,15 @@ Open **http://localhost:3000**.
 
 | Page | Who | What |
 |---|---|---|
+| `/signin` | Everyone | Tenant sign-in or account, and staff sign-in |
+| `/my-repairs` | Signed-in tenants | Every repair on the account; add an earlier one by reference |
 | `/report` | Tenants | Report a repair |
 | `/track/<reference>` | Tenants | Progress, live estimate, trip update, ask why, ask for a review |
 | `/coordinator` | Staff | Ranked queue, priority filter, alerts, phone list, chart, download |
 | `/coordinator/requests/<id>` | Staff | Priority breakdown, flags, live wait, decision |
 | `/coordinator/trips` | Staff | Remote trips, daily runs, make-safe call-outs, map, cost, approvals |
 | `/coordinator/fairness` | Staff | Fairness measurements and the trip-policy what-if slider |
+| `/coordinator/staff` | Administrators | Add, switch off and reset staff accounts |
 
 The web app calls the backend through `/api`. To use a backend somewhere
 else, set `FAIRTRIAGE_API=https://your-backend` before `npm run dev` or
@@ -276,6 +294,9 @@ project folder. `.env` is ignored by git, so keys never reach the repository.
 | `FAIRTRIAGE_LLM_BUDGET_S` | `12` | Longest a tenant waits for the model before the offline reader answers |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | empty | Twilio account for text messages to tenants. Without all three, texts are composed and logged but not sent (demo mode), and tenants are told so |
 | `FAIRTRIAGE_PUBLIC_WEB_URL` | `https://fairtriage-nt-web-one.vercel.app` | Where the tracking link in a text points |
+| `FAIRTRIAGE_AUTH_SECRET` | empty | Long random value that signs sign-in sessions. **Set it in production** |
+| `FAIRTRIAGE_ADMIN_USERNAME` | `admin` | Username of the first administrator |
+| `FAIRTRIAGE_ADMIN_PASSWORD` | empty | Password of the first administrator: the account is created the first time it signs in. Without it nobody can reach the staff area |
 | `FAIRTRIAGE_MONGO_URL` | `mongodb://localhost:27017` | MongoDB connection string (Atlas: `mongodb+srv://...`) |
 | `FAIRTRIAGE_MONGO_DB` | `fairtriage` | Database name |
 
@@ -291,7 +312,7 @@ python scripts/run_scenarios.py
 python scripts/run_eval.py --extractor gemini --limit 300
 ```
 
-The first runs 575 tests on an in-memory database, so no server, network or
+The first runs 623 tests on an in-memory database, so no server, network or
 API key is needed (the Gemini path is tested with a stand-in client). The
 second runs the 16 demo scenarios in [TEST_CASES.md](TEST_CASES.md). The third
 scores reading against the 12,000-row dataset in `data/` with Gemini (omit
@@ -313,6 +334,14 @@ JSON endpoints under `/api` (interactive docs at `http://localhost:8000/docs`):
 
 | Method | Endpoint | Purpose |
 |---|---|---|
+| POST | `/api/auth/register` | Tenant creates an account `{phone, password, name?}` |
+| POST | `/api/auth/signin` | Sign in `{kind: tenant\|staff, identifier, password}` (sets a session cookie) |
+| POST | `/api/auth/signout` | Sign out |
+| GET | `/api/auth/me` | Who is signed in, or null |
+| GET | `/api/me/requests` | A tenant's repairs |
+| POST | `/api/me/claim` | Add an earlier repair `{reference}` (must match the account's mobile) |
+| GET / POST | `/api/staff/users` | Administrators: list or add staff accounts |
+| POST | `/api/staff/users/{id}/active`, `/password` | Administrators: switch an account on or off, reset its password |
 | POST | `/api/requests` | Lodge a report `{text, community, address, phone, vulnerability[]}`; `phone` must be an Australian mobile; the tenant is texted |
 | POST | `/api/requests/{id}/clarify` | Answer a question (the system's or a coordinator's) |
 | GET | `/api/requests/{id}` | Full record: assessment, live wait, history, trip |
@@ -347,6 +376,7 @@ fairtriage/          Python backend
   queue.py           Queue position and the location-free Darwin rank
   wait.py            Wait estimates
   explain.py         Tenant and staff explanations, and their verifier
+  auth.py            Sign-in, roles, sessions, tenant and staff accounts
   askwhy.py          The tenant's "why" answer and review requests
   sms.py             Text messages to tenants (Twilio, or demo mode) and lost-reference resend
   service.py         Lodging, questions, assessments, decisions, live waits, phone list
@@ -363,7 +393,7 @@ frontend/            Next.js web app (presentation only; calls the API)
 config/policy.yaml   Every weight, threshold and rate
 reference/           Communities, road network, crews, road status
 scripts/             Seeding, evaluation, scenario runner, data builders
-tests/               575 tests
+tests/               623 tests
 docs/DESIGN.md       Design notes, test findings, evaluation
 ```
 
@@ -382,7 +412,9 @@ repository**, with the data in **MongoDB Atlas**.
 **2. Backend project**
 - *New Project* → import this repository. Root Directory `./`, preset
   **FastAPI**. It finds the app through `app.py`.
-- Environment variables: `FAIRTRIAGE_MONGO_URL` = your Atlas string;
+- Environment variables: `FAIRTRIAGE_AUTH_SECRET` = a long random value,
+  `FAIRTRIAGE_ADMIN_PASSWORD` = the first administrator's password (sign in
+  as `admin`, then add staff); `FAIRTRIAGE_MONGO_URL` = your Atlas string;
   `FAIRTRIAGE_EXTRACTOR` = `gemini` and `GEMINI_API_KEY` = your key; and for
   text messages `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`.
 - Deploy, then open `https://<backend>.vercel.app/api/health`: it should
@@ -411,9 +443,10 @@ tests and dataset out of the backend bundle.
 - **Text messages need a Twilio account:** until the three Twilio settings
   are added, texts run in demo mode (composed and logged, not sent). A Twilio
   trial account only sends to numbers verified in it.
-- **No sign-in yet:** the staff pages are open for this test so every feature
-  can be tried. Every decision already records an actor, a reason and a time;
-  in production the actor would come from department sign-in.
+- **Accounts are not verified by text:** a tenant account is not checked
+  against the mobile by a code, which is why repairs are never linked by a
+  matching mobile alone. Department single sign-on would replace staff
+  passwords in production.
 - **Synthetic dataset:** labels were derived by rule, not by people. A
   human-labelled sample is needed before quoting accuracy.
 - **Designed without the communities it concerns.** Before real use it would

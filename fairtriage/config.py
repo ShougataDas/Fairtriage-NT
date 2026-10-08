@@ -57,6 +57,13 @@ class Settings(BaseSettings):
         "TWILIO_AUTH_TOKEN", "FAIRTRIAGE_TWILIO_AUTH_TOKEN"))
     twilio_from_number: str = Field(default="", validation_alias=AliasChoices(
         "TWILIO_FROM_NUMBER", "FAIRTRIAGE_TWILIO_FROM_NUMBER"))
+    # Sign-in. AUTH_SECRET signs session cookies: set a long random value in
+    # production. The first admin is created the first time this username
+    # signs in with this password; that admin then adds other staff.
+    auth_secret: str = ""
+    admin_username: str = "admin"
+    admin_password: str = ""
+
     # where the tenant's tracking link in a text points
     public_web_url: str = "https://fairtriage-nt-web-one.vercel.app"
 
