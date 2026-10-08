@@ -440,9 +440,11 @@ tests and dataset out of the backend bundle.
 - **Gemini free tier:** in testing, the free tier was often busy; a paid or
   higher-quota key is recommended for real use. The reading evaluation should
   be re-run with Gemini on such a key.
-- **Text messages need a Twilio account:** until the three Twilio settings
-  are added, texts run in demo mode (composed and logged, not sent). A Twilio
-  trial account only sends to numbers verified in it.
+- **Text messages need a paid Twilio account and a sender:** until the three
+  Twilio settings are added, texts run in demo mode (composed and logged, not
+  sent). Twilio trial accounts cannot send custom messages, and an Australian
+  sender number needs Twilio's regulatory approval, which can take several
+  business days; a number from another country can be used meanwhile.
 - **Accounts are not verified by text:** a tenant account is not checked
   against the mobile by a code, which is why repairs are never linked by a
   matching mobile alone. Department single sign-on would replace staff
