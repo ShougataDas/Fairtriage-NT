@@ -42,7 +42,28 @@ LEXICON: dict[str, str] = {
     "pls": "please", "plz": "please", "sumone": "someone", "kum": "come",
     "nt": "not", "bcz": "because", "hse": "house", "kichen": "kitchen",
     "gud": "good", "nogud": "no good", "cant": "cannot", "dont": "do not",
+    # Kriol (Roper River, Katherine, Barkly). Common written forms only.
+    "lektrik": "electric", "lecktric": "electric", "spakin": "sparking",
+    "spakim": "sparking", "lait": "light", "haus": "house",
+    "pridj": "fridge", "fridj": "fridge", "stob": "stove", "kitjin": "kitchen",
+    "kitchin": "kitchen", "wol": "wall", "flowa": "floor", "ruf": "roof",
+    "bathrum": "bathroom", "kaan": "cannot", "kan": "can", "mela": "we",
+    "melabat": "we", "olabat": "all", "nomo": "no more", "krak": "crack",
+    "frait": "scared", "bigwan": "big", "lilbit": "a little", "deya": "there",
+    "deidei": "every day",
 }
+
+# Kriol phrases, replaced before single words. "ola haus" is the whole house,
+# and "nomo gat" is "no" ("mela nomo gat lait" = we have no light).
+PHRASES: dict[str, str] = {
+    "ola haus": "whole house", "ola house": "whole house",
+    "nomo gat": "no", "no gat": "no", "kam ap": "coming up", "kam in": "coming in",
+    "kaan lok": "cannot lock", "kaan shat": "cannot shut", "im brok": "is broken",
+    "im stop": "has stopped", "im blok": "is blocked",
+    "im spakin": "is sparking", "bin finish": "has gone",
+}
+_PHRASE = re.compile(r"\b(" + "|".join(re.escape(k) for k in sorted(PHRASES, key=len, reverse=True)) + r")\b",
+                     re.IGNORECASE)
 
 # never "corrected": these bear hazards, and a wrong correction changes the
 # assessment silently
@@ -64,7 +85,12 @@ def normalise(text: str) -> tuple[str, list[tuple[str, str]]]:
         changes.append((w, out))
         return out
 
-    return _WORD.sub(repl, text), changes
+    def phrase(m: re.Match) -> str:
+        out = PHRASES[m.group(0).lower()]
+        changes.append((m.group(0), out))
+        return out
+
+    return _WORD.sub(repl, _PHRASE.sub(phrase, text)), changes
 
 
 DECISIVE = ("actionability", "hazard_domain", "endangers_person",
@@ -91,8 +117,14 @@ def reconcile(a: Extraction, b: Extraction) -> tuple[Extraction, dict]:
         "endangers_person": a.endangers_person or b.endangers_person,
         "essential_service_lost": a.essential_service_lost or b.essential_service_lost,
     })
-    # prefer whichever reading says this is an actionable repair
+    # Prefer whichever reading says this is an actionable repair. Take that
+    # reading whole: keeping the other's "unclear" confidence would ask the
+    # tenant a vague question about a report the corrected text understood.
     if not a.in_queue and b.in_queue:
-        merged = merged.model_copy(update={"actionability": b.actionability,
-                                           "hazard_domain": b.hazard_domain})
+        merged = b.model_copy(update={
+            "endangers_person": merged.endangers_person,
+            "essential_service_lost": merged.essential_service_lost,
+            "emergency_000": a.emergency_000 or b.emergency_000,
+            "person_hurt": a.person_hurt or b.person_hurt,
+        })
     return merged, diffs

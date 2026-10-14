@@ -648,6 +648,8 @@ PROMPT = """You read housing repair messages for a maintenance coordinator in th
 
 Tenants write briefly, often in second-language English or Aboriginal English, often without grammar. Judge what is described, never how it is written. "aircon bin broken 3 week, kids in house" is a clear and complete report.
 
+Some write in Kriol. Read it as you would English: "powa bin finish la ola haus" = the power has gone in the whole house; "mela nomo gat lait" = we have no light; "wiya im spakin" = a wire is sparking; "dor im brok, mela kaan lok im" = the door is broken and we cannot lock it; "wata im kam ap la flowa" = water is coming up on the floor; "pridj" = fridge; "mela frait" = we are scared.
+
 Rules:
 - Report only what the text supports.
 - actionability: "repair" if any fault is described anywhere in the message, even after small talk. A message that opens "just checking if the app works" and then mentions sparking IS a repair.
