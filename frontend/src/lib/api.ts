@@ -397,6 +397,32 @@ export interface Equity {
   >;
   deferrals: Record<string, { mean: number; at_or_above_2: number; n: number }>;
   remote_jobs_scheduled: { on_own_trip: number; as_passengers: number; passenger_share_pct: number | null };
+  jobs: RankedJob[];
+  policy: RankingPolicy;
+}
+
+export interface RankedJob {
+  request_id: string;
+  community: string;
+  remote: boolean;
+  tier: Exclude<Tier, "NotInQueue">;
+  need: number | null;
+  rank: number;
+  darwin_rank: number | null;
+  wait_days: number | null;
+  wait_days_darwin: number | null;
+}
+
+export interface RankingPolicy {
+  version: string;
+  need_weights: { habitability: number; extent: number; containment: number; vulnerability: number };
+  habitability_score: Record<string, number>;
+  extent_score: { whole_dwelling: number; one_fixture: number };
+  containment_score: { not_contained: number; tenant_made_safe: number };
+  vulnerability_score: Record<string, number>;
+  emergency_need: number;
+  service_targets_days: Record<string, { urban: number; remote: number }>;
+  service_targets_verified: boolean;
 }
 
 export class ApiError extends Error {

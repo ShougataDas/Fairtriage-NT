@@ -16,6 +16,7 @@ from statistics import mean
 
 from . import db
 from .db import REQUESTS, TRIPS
+from .config import policy
 from .reference import communities
 
 
@@ -53,6 +54,21 @@ def equity() -> dict:
                      "ratio": round(r / u, 1) if r and u else None,
                      "n_remote": len(d["remote"]), "n_urban": len(d["urban"])}
 
+    jobs = []
+    for req in rows:
+        a = req["assessment"]
+        facts = a.get("facts") or {}
+        if (a["tier"] == "NotInQueue" or req.get("status") not in db.OPEN_STATUSES
+                or facts.get("rank") is None):
+            continue
+        c = communities()[req["dwelling"]["community"]]
+        low, high = a.get("wait_days_low"), a.get("wait_days_high")
+        jobs.append({"request_id": req["_id"], "community": c.name, "remote": c.remote,
+                     "tier": a["tier"], "need": a.get("need_score"),
+                     "rank": facts.get("rank"), "darwin_rank": facts.get("darwin_rank"),
+                     "wait_days": round((low + high) / 2, 1) if low is not None else None,
+                     "wait_days_darwin": a.get("wait_days_darwin")})
+
     passengers = own = 0
     for t in trips:
         for j in t.get("jobs", []):
@@ -75,4 +91,15 @@ def equity() -> dict:
             "on_own_trip": own, "as_passengers": passengers,
             "passenger_share_pct": round(100 * passengers / (own + passengers), 1)
             if (own + passengers) else None},
+        "jobs": jobs,
+        "policy": ranking_policy(),
     }
+
+
+def ranking_policy() -> dict:
+    """The numbers behind every rank, straight from policy.yaml, so the page
+    that explains the ranking can never drift from the ranking itself."""
+    p = policy()
+    return {k: p[k] for k in ("version", "need_weights", "habitability_score", "extent_score",
+                              "containment_score", "vulnerability_score", "emergency_need",
+                              "service_targets_days", "service_targets_verified")}

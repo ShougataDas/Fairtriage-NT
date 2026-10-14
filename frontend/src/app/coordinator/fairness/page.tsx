@@ -5,39 +5,47 @@ import { fetcher, type Equity } from "@/lib/api";
 import { TIERS, cx, tierStyle } from "@/lib/format";
 import { Card, CardTitle, ErrorBox, PageHeader, Spinner } from "@/components/ui";
 import { TripPolicy } from "@/components/TripPolicy";
+import { HowRankingWorks, NeedCalculator, RankCheckChart, SameRepairTwoPlaces } from "@/components/RankingExplainer";
 
 export default function FairnessPage() {
   const { data: m, error, isLoading, mutate } = useSWR<Equity>("/api/metrics/equity", fetcher, { refreshInterval: 30000 });
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Fairness" lede="Numbers computed from the live queue, not claims about it." />
+      <PageHeader title="Fairness" lede="How every repair gets its place in line, and live proof that a remote house is never pushed back for being far away." />
       {isLoading && <Spinner />}
       {error && <ErrorBox error={error} onRetry={() => mutate()} />}
       {m && (
         <>
+          <HowRankingWorks policy={m.policy} />
+          <NeedCalculator policy={m.policy} />
+
+          <h2 className="mt-4 text-2xl font-bold tracking-tight">Proof from the live queue</h2>
           <div className="grid gap-4 md:grid-cols-3">
             <Metric
-              title="Rank ignores location"
+              title="Same place in line as in Darwin"
               value={m.rank_location_invariance.pct != null ? `${m.rank_location_invariance.pct}%` : "n/a"}
               good={m.rank_location_invariance.pct === 100}
-              body={`${m.rank_location_invariance.identical} of ${m.rank_location_invariance.checked} jobs have exactly the rank they would have with location removed. Must be 100%.`}
+              body={`${m.rank_location_invariance.identical} of ${m.rank_location_invariance.checked} jobs have exactly the place they would have if the house were in Darwin. It must always be 100%.`}
             />
             <Metric
-              title="Remote jobs on someone else's trip"
+              title="Remote jobs that shared a trip"
               value={m.remote_jobs_scheduled.passenger_share_pct != null ? `${m.remote_jobs_scheduled.passenger_share_pct}%` : "n/a"}
-              body={`${m.remote_jobs_scheduled.as_passengers} rode along, ${m.remote_jobs_scheduled.on_own_trip} had their own trip. A high share means remote work depends on other people's emergencies.`}
+              body={`${m.remote_jobs_scheduled.as_passengers} joined a trip planned for another job, ${m.remote_jobs_scheduled.on_own_trip} had a trip of their own. If this is high, remote repairs are waiting for someone else's emergency.`}
             />
             <Metric
-              title="Passed over twice or more"
+              title="Skipped twice or more"
               value={`${m.deferrals.remote?.at_or_above_2 ?? 0} remote · ${m.deferrals.urban?.at_or_above_2 ?? 0} urban`}
-              body="Rank cannot fall after a report is made, so repeated deferral is how slow neglect would show up."
+              body="A job's place cannot drop once reported, so being skipped again and again is how quiet neglect would show. Remote and town should look alike."
             />
           </div>
 
+          <RankCheckChart jobs={m.jobs} />
+          <SameRepairTwoPlaces jobs={m.jobs} />
+
           <Card>
-            <CardTitle>Expected wait: remote against urban</CardTitle>
-            <p className="-mt-2 mb-5 text-muted">Same tier, same rank rules. The difference is travel, roads and crew numbers.</p>
+            <CardTitle>Average expected wait: remote against town</CardTitle>
+            <p className="-mt-2 mb-5 text-muted">Same rules for the place in line. Remote houses can still wait longer because of travel, roads and how many crews are nearby. This chart keeps that gap in plain sight.</p>
             <div className="flex flex-col gap-6">
               {TIERS.map((tier) => {
                 const g = m.wait_gap_by_tier[tier];
@@ -48,11 +56,11 @@ export default function FairnessPage() {
                     <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
                       <span className={cx("font-bold", tierStyle[tier].text)}>{tier}</span>
                       <span className="text-sm text-muted">
-                        {g.ratio ? `remote waits ${g.ratio}× as long` : ""} · {g.n_remote} remote / {g.n_urban} urban jobs
+                        {g.ratio ? `remote waits ${g.ratio}× as long` : ""} · {g.n_remote} remote / {g.n_urban} town jobs
                       </span>
                     </div>
                     <Bar label="Remote" value={g.remote_days} max={max} strong />
-                    <Bar label="Urban" value={g.urban_days} max={max} />
+                    <Bar label="Town" value={g.urban_days} max={max} />
                   </div>
                 );
               })}
