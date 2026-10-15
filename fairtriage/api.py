@@ -18,7 +18,7 @@ from . import auth, metrics, scheduler, service
 from .config import policy, reader_status
 from .reference import communities, road_km, trade_capacity
 from .schemas import (ClaimIn, ClarifyIn, DecisionIn, LodgeIn, PasswordIn, RegisterIn, ResendIn,
-                      ReviewIn, SignInIn, StaffIn, ThresholdIn, TripChangeIn, WhyIn)
+                      ReviewIn, SafetyReferralIn, SignInIn, StaffIn, ThresholdIn, TripChangeIn, WhyIn)
 
 WEB = Path(__file__).parent / "web"
 app = FastAPI(title="FairTriage NT", version="3.0")
@@ -279,6 +279,26 @@ def api_alerts():
 def api_contacts():
     """Reports a person must phone about: still unclear, or a withdrawal."""
     return service.contact_list()
+
+
+@app.get("/api/safety", dependencies=[STAFF])
+def api_safety():
+    """Lives in danger reported through the repair form, and who to tell."""
+    from . import safety
+    return {"agencies": safety.AGENCIES, "outcomes": safety.OUTCOMES, "cases": safety.cases()}
+
+
+@app.post("/api/safety/{rid}")
+def api_safety_record(rid: str, inp: SafetyReferralIn, user: dict = STAFF):
+    """Record that a safety report was passed on (or why not), under the signed-in name."""
+    from . import safety
+    try:
+        return safety.record(rid, actor=auth.actor_of(user), outcome=inp.outcome, agency=inp.agency,
+                             reference=inp.reference, note=inp.note)
+    except safety.NotFound:
+        raise HTTPException(404, "no such request")
+    except safety.Invalid as e:
+        raise HTTPException(422, str(e))
 
 
 @app.get("/api/trips", dependencies=[STAFF])

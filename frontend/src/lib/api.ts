@@ -193,6 +193,45 @@ export interface Contact {
   tier?: Tier | null;
 }
 
+export interface SafetyAgency {
+  id: string;
+  name: string;
+  phone: string;
+  when: string;
+}
+
+export interface SafetyReferral {
+  request_id: string;
+  outcome: "reported" | "already_reported" | "no_report_needed";
+  agency: string | null;
+  reference: string | null;
+  note: string | null;
+  actor: string;
+  at: string;
+}
+
+export interface SafetyCase {
+  request_id: string;
+  lodged_at: string;
+  text: string;
+  community: string;
+  address: string | null;
+  phone: string | null;
+  status: string;
+  tier: Tier | null;
+  kind: "life_at_risk" | "person_hurt";
+  /** the message also reported a repair, which is in the queue */
+  repair_too: boolean;
+  referrals: SafetyReferral[];
+  open: boolean;
+}
+
+export interface SafetyBoard {
+  agencies: SafetyAgency[];
+  outcomes: Record<SafetyReferral["outcome"], string>;
+  cases: SafetyCase[];
+}
+
 export interface CommunityGroup {
   group: string;
   communities: { name: string; remote: boolean }[];

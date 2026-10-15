@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { ArrowDown, ArrowUp, ChevronRight, Hourglass, Phone, RefreshCw, Search, TriangleAlert } from "lucide-react";
-import { fetcher, type BacklogAlert, type Contact, type QueueRow, type Tier } from "@/lib/api";
+import { ArrowDown, ArrowUp, ChevronRight, Hourglass, Phone, RefreshCw, Search, Siren, TriangleAlert } from "lucide-react";
+import { fetcher, type BacklogAlert, type Contact, type QueueRow, type SafetyBoard, type Tier } from "@/lib/api";
 import { TIERS, ago, cx, days, humanise, tierStyle } from "@/lib/format";
 import { Card, CardTitle, Empty, ErrorBox, PageHeader, Pill, Spinner, TierBadge, inputClass } from "@/components/ui";
 import { DownloadMenu } from "@/components/DownloadMenu";
@@ -26,6 +26,8 @@ export default function QueuePage() {
   });
   const { data: contacts } = useSWR<Contact[]>("/api/contacts", fetcher, { refreshInterval: 15000 });
   const { data: alerts } = useSWR<BacklogAlert[]>("/api/alerts", fetcher, { refreshInterval: 30000 });
+  const { data: safety } = useSWR<SafetyBoard>("/api/safety", fetcher, { refreshInterval: 15000 });
+  const safetyOpen = safety?.cases.filter((c) => c.open).length ?? 0;
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -93,6 +95,20 @@ export default function QueuePage() {
           <p className="mt-1 text-3xl font-bold">{contacts?.length ?? "—"}</p>
         </div>
       </div>
+
+      {safetyOpen > 0 && (
+        <Link href="/coordinator/safety" role="alert"
+          className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-immediate bg-immediate-soft p-5 hover:shadow-sm">
+          <Siren className="size-6 shrink-0 text-immediate" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="block text-lg font-bold text-immediate">
+              {safetyOpen} safety report{safetyOpen === 1 ? "" : "s"} to pass on
+            </span>
+            <span className="text-graphite">A life may be in danger. These are not repairs, but you may have to report them to police or child protection.</span>
+          </span>
+          <span className="font-bold text-ink underline">Open safety reports</span>
+        </Link>
+      )}
 
       {alerts && alerts.length > 0 && (
         <div role="alert" className="rounded-2xl border-2 border-immediate/40 bg-immediate-soft p-5">

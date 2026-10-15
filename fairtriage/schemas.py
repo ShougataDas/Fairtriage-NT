@@ -233,6 +233,13 @@ class ResendIn(BaseModel):
     phone: str = Field(min_length=6, max_length=30)
 
 
+class SafetyReferralIn(BaseModel):
+    outcome: str = Field(max_length=40)
+    agency: Optional[str] = Field(default=None, max_length=40)
+    reference: Optional[str] = Field(default=None, max_length=100)
+    note: Optional[str] = Field(default=None, max_length=1000)
+
+
 class WhyIn(BaseModel):
     question: Optional[str] = Field(default=None, max_length=500)
 

@@ -330,6 +330,32 @@ INJURY = (
     r"|\bhit (his|her|their|my) head\b|\bbroke (his|her|their|my) (leg|arm|back|neck|hip|wrist|ankle)\b"
 )
 
+# A life in danger that has nothing to do with the house: drowning, not
+# breathing, a collapse, an overdose, a snake bite, a crash, a missing child.
+# Not a repair, but never "no repair found": the tenant is told to call 000
+# and staff see it on the safety list, because they may have to report it.
+# "not breathing" holds a negator, so those phrases are joined into one token
+# (life_breathing) before matching and before negation is checked.
+LIFE_JOIN = (r"\b(not|isn'?t|aren'?t|can'?t|cannot|won'?t|wont|stopped|no longer)\s+"
+             r"(breathing|breathe|moving|responding|waking up|wake up|swim)\b")
+LIFE_THREAT = (
+    r"\bdrown(s|ed|ing)?\b(?!\s+in\s+(bills|debt|work|paper\w*|rubbish|water|mud|leaves))|\blife_(breathing|breathe|moving|responding|waking up|wake up|swim)\b"
+    r"|\b(fell|fallen|falls?|slipped|swept|washed)\s+(in|into|off)\s+(the \s+|a \s+)?"
+    r"(sea|ocean|river|creek|water|pool|dam|billabong|waterhole|tide|surf|rocks|cliff|bridge)\b"
+    r"|\b(swept|washed) (away|out)\b|\b(went|gone|is|was|are) under (the )?water\b"
+    r"|\b(is|are|was|keeps?|started) choking\b|\bchoking on\b"
+    r"|\boverdos\w*\b|\bheart attack\b|\bhaving a (seizure|fit|stroke)\b|\banaphyla\w*\b"
+    r"|\b(snake|spider|croc\w*|crocodile) (bit|bite|bitten|attack\w*|took|grabbed)\b"
+    r"|\bbitten by (a |the )?(snake|spider|croc\w*|dog)\b"
+    r"|\b(car|truck|motorbike|bike) (crash|accident)\b|\b(hit|run over|knocked down) by (a |the )?(car|truck|ute|bus)\b"
+    r"|\b(missing|lost) (child|kid|son|daughter|baby|boy|girl)\b"
+    r"|\bcan'?t find (my |our |the )?(child|kid|son|daughter|baby|boy|girl)\b"
+    r"|\b(he|she|they|someone|somebody|my \w+|our \w+|son|daughter|baby|child|kid|mum|dad|nan|man|woman|person)\b"
+    r"\s+(has\s+|is\s+|just\s+)?(passed out|fainted|collapsed)\b"
+    r"|\b(swallowed|drank|ate|took)\b.{0,20}\b(poison|bleach|chemicals?|pills|tablets)\b"
+    r"|\b(bleeding (a lot|badly|heavily|everywhere)|won'?t stop bleeding)\b"
+)
+
 # Tenants rarely say "power cut": they list what stopped. Lights failing
 # together with something else, or "nothing / none / all / everything" being
 # off, is the house losing power. One light, or one socket, is not.
@@ -467,6 +493,12 @@ class KeywordExtractor:
             if any(not _negated(c, m) for m in re.finditer(INJURY, c)) and not _resolved(c):
                 injury_clause = cl
                 break
+        life_clause = None
+        for cl in clauses:
+            c = re.sub(LIFE_JOIN, lambda m: "life_" + m.group(2), cl.lower())
+            if any(not _negated(c, m) for m in re.finditer(LIFE_THREAT, c)) and not _resolved(c):
+                life_clause = injury_clause = injury_clause or cl
+                break
 
         danger, danger_domain, danger_clause = False, None, None
         essential, ess_domain, ess_clause = False, None, None
@@ -523,6 +555,15 @@ class KeywordExtractor:
             ess_domain, ess_clause = "electrical", t
 
         has_fault = danger or essential or fault_domain is not None
+
+        if life_clause and not has_fault:
+            return Extraction(
+                actionability=Actionability.OUT_OF_SCOPE, hazard_domain=HazardDomain.NONE,
+                is_active=True, endangers_person=True, essential_service_lost=False,
+                habitability=Habitability.NONE, whole_dwelling=False,
+                emergency_000=True, person_hurt=True, tenant_isolated=False,
+                evidence_phrase=life_clause[:200],
+                confidence=Confidence.HIGH, missing_decisive_fact=DecisiveFact.NONE)
 
         if injury_clause and not has_fault:
             return Extraction(
@@ -662,8 +703,8 @@ Rules:
 - confidence "low" when the message is too vague to classify. Do not guess a hazard to fill the field.
 - A message asking for a repair without saying what or where ("I'd like to submit a maintenance request about an issue") is actionability "unclear", never "no_issue": the tenant will be asked one question.
 - whole_dwelling: true when the whole household is exposed to the harm: flooded, roof gone, no power or water to the house, or a gas leak (fumes reach everyone). False for one fixture or one room, and false for a door or lock problem.
-- emergency_000: true when life is at risk right now: fire, flames, explosion, someone electrocuted, injured, unconscious or not breathing, violence or a weapon (someone with a knife, someone being hit or threatened), or someone talking about harming themselves. Hedged wording still counts ("perhaps the gas is on fire"). A fire alarm beeping is not an emergency.
-- Violence, weapons, threats and self-harm are NOT repairs: set actionability "out_of_scope" with emergency_000 true and endangers_person true.
+- emergency_000: true when life is at risk right now: fire, flames, explosion, someone electrocuted, injured, unconscious or not breathing, drowning or swept away in water, choking, collapsed, an overdose or poisoning, a snake or crocodile attack, a car crash with people hurt, a missing child, violence or a weapon (someone with a knife, someone being hit or threatened), or someone talking about harming themselves. Hedged wording still counts ("perhaps the gas is on fire"). A fire alarm beeping is not an emergency.
+- Violence, weapons, threats, self-harm and any life in danger away from the house ("my son is drowning in the sea") are NOT repairs: set actionability "out_of_scope" with emergency_000 true and endangers_person true. Never call them "no_issue".
 - person_hurt: true if someone has been or may have been hurt (a fall from a roof or ladder, bleeding, knocked out). It does NOT raise the repair's urgency: judge endangers_person from the house alone ("he fell off the roof and now the roof leaks" is person_hurt true, and the leak judged on its own).
 - tenant_isolated: true ONLY if the tenant says they have already made it safe (power off at the meter box, gas off at the bottle, water off at the mains). Never assume it.
 - missing_decisive_fact: the ONE absent fact that would change the outcome. A blocked toilet with no mention of whether it is the only toilet -> "only_toilet". Otherwise "".

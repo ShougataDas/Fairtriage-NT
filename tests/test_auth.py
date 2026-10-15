@@ -12,7 +12,7 @@ pytestmark = pytest.mark.usefixtures("real_auth")
 ADMIN_PW = "correct horse battery"
 STAFF_ROUTES = [("get", "/api/queue"), ("get", "/api/export?format=csv"), ("get", "/api/contacts"),
                 ("get", "/api/alerts"), ("get", "/api/trips"), ("get", "/api/trips/preview"),
-                ("get", "/api/metrics/equity"), ("get", "/api/policy/trip-threshold"),
+                ("get", "/api/metrics/equity"), ("get", "/api/policy/trip-threshold"), ("get", "/api/safety"),
                 ("post", "/api/trips/plan"), ("get", "/coordinator"), ("get", "/coordinator/trips")]
 
 

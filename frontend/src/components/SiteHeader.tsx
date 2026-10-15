@@ -19,6 +19,7 @@ const staffLinks = [
   { href: "/coordinator", label: "Queue" },
   { href: "/coordinator/trips", label: "Trips" },
   { href: "/coordinator/fairness", label: "Fairness" },
+  { href: "/coordinator/safety", label: "Safety" },
 ];
 
 /** Links follow who is signed in: tenants and visitors never see the staff
